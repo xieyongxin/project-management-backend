@@ -244,9 +244,9 @@
 
 状态：已完成
 
-后端提交：待提交
+后端提交：`d3bd17d`
 
-前端提交：待提交
+前端提交：`a750c15`
 
 验证记录：见 `doc/plans/PM-0007.md`；后端 `mvn -B -ntp -pl ruoyi-system,ruoyi-admin -am test` 通过（system 18 项、admin 14 项），前端 `npm run build:prod` 通过；真实 HTTP 改名返回 200、规范化重名返回 409，项目改名日志落库；测试项目和日志已清理，项目 1 恢复原名，成员总数 1、项目日志 0。
 
