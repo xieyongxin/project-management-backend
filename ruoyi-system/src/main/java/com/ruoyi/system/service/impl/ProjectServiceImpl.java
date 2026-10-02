@@ -398,6 +398,10 @@ public class ProjectServiceImpl implements IProjectService
         {
             throw new ServiceException("该成员仍是需求负责人，不能移除", HttpStatus.BAD_REQUEST);
         }
+        if (projectMemberMapper.countTaskOwnerReferences(projectId, memberUserId) > 0)
+        {
+            throw new ServiceException("该成员仍是任务负责人，不能移除", HttpStatus.BAD_REQUEST);
+        }
         if (Integer.valueOf(1).equals(member.getIsProjectAdmin())
             && projectMemberMapper.countProjectAdmins(projectId) <= 1)
         {

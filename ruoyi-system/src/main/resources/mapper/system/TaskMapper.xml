@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.TaskMapper">
+
+    <resultMap type="Task" id="TaskResult">
+        <id property="taskId" column="task_id" />
+        <result property="projectId" column="project_id" />
+        <result property="requirementId" column="requirement_id" />
+        <result property="creatorId" column="creator_id" />
+        <result property="currentVersionId" column="current_version_id" />
+        <result property="currentVersionNo" column="task_version_no" />
+        <result property="requirementVersionId" column="requirement_version_id" />
+        <result property="requirementVersionNo" column="requirement_version_no" />
+        <result property="title" column="title" />
+        <result property="description" column="description" />
+        <result property="status" column="status" />
+        <result property="statusLabel" column="status_label" />
+        <result property="isDeleted" column="is_deleted" />
+        <result property="createTime" column="create_time" />
+        <result property="updateTime" column="update_time" />
+    </resultMap>
+
+    <resultMap type="TaskCategory" id="TaskCategoryResult">
+        <id property="taskId" column="task_id" />
+        <result property="categoryValue" column="category_value" />
+        <result property="categoryLabel" column="category_label" />
+    </resultMap>
+
+    <resultMap type="TaskOwner" id="TaskOwnerResult">
+        <id property="taskId" column="task_id" />
+        <id property="userId" column="user_id" />
+        <result property="userName" column="user_name" />
+        <result property="nickName" column="nick_name" />
+        <result property="email" column="email" />
+    </resultMap>
+
+    <insert id="insertTask" parameterType="Task" useGeneratedKeys="true" keyProperty="taskId">
+        insert into pm_task
+            (project_id, requirement_id, creator_id, current_version_id, status, is_deleted, create_time, update_time)
+        values
+            (#{projectId}, #{requirementId}, #{creatorId}, #{currentVersionId}, #{status}, #{isDeleted},
+             #{createTime}, #{updateTime})
+    </insert>
+
+    <insert id="insertTaskVersion" parameterType="TaskVersion" useGeneratedKeys="true" keyProperty="versionId">
+        insert into pm_task_version
+            (task_id, version_no, title, description, requirement_version_id, created_by, create_time)
+        values
+            (#{taskId}, #{versionNo}, #{title}, #{description}, #{requirementVersionId}, #{createdBy}, #{createTime})
+    </insert>
+
+    <update id="updateCurrentVersion">
+        update pm_task
+        set current_version_id = #{versionId}, update_time = CURRENT_TIMESTAMP
+        where task_id = #{taskId}
+    </update>
+
+    <insert id="insertTaskCategory">
+        insert into pm_task_category (task_id, category_value)
+        values (#{taskId}, #{categoryValue})
+    </insert>
+
+    <insert id="insertTaskOwner">
+        insert into pm_task_owner (task_id, user_id)
+        values (#{taskId}, #{userId})
+    </insert>
+
+    <sql id="selectTaskColumns">
+        select t.task_id, t.project_id, t.requirement_id, t.creator_id, t.current_version_id,
+               tv.version_no as task_version_no, tv.title, tv.description,
+               tv.requirement_version_id, rv.version_no as requirement_version_no,
+               t.status, d.dict_label as status_label, t.is_deleted, t.create_time, t.update_time
+        from pm_task t
+        inner join pm_task_version tv on tv.version_id = t.current_version_id
+        inner join pm_requirement_version rv on rv.version_id = tv.requirement_version_id
+        left join sys_dict_data d on d.dict_type = 'pm_task_status'
+            and d.dict_value = t.status and d.status = '0'
+        where t.is_deleted = 0
+    </sql>
+
+    <select id="selectTaskForUser" resultMap="TaskResult">
+        <include refid="selectTaskColumns" />
+          and t.project_id = #{projectId}
+          and t.task_id = #{taskId}
+          and exists (
+              select 1 from pm_project_member access_member
+              where access_member.project_id = t.project_id
+                and access_member.user_id = #{userId}
+          )
+    </select>
+
+    <select id="selectTaskCategories" resultMap="TaskCategoryResult">
+        select c.task_id, c.category_value,
+               d.dict_label as category_label
+        from pm_task_category c
+        left join sys_dict_data d on d.dict_type = 'pm_task_category'
+            and d.dict_value = c.category_value
+        where c.task_id = #{taskId}
+        order by c.category_value asc
+    </select>
+
+    <select id="selectTaskOwners" resultMap="TaskOwnerResult">
+        select o.task_id, o.user_id, u.user_name, u.nick_name, u.email
+        from pm_task_owner o
+        inner join sys_user u on u.user_id = o.user_id
+        where o.task_id = #{taskId}
+        order by o.user_id asc
+    </select>
+
+    <select id="selectActiveTaskStatuses" resultType="com.ruoyi.common.core.domain.entity.SysDictData">
+        select dict_code as dictCode, dict_sort as dictSort, dict_label as dictLabel,
+               dict_value as dictValue, dict_type as dictType, css_class as cssClass,
+               list_class as listClass, is_default as isDefault, status, create_by as createBy,
+               create_time as createTime, update_by as updateBy, update_time as updateTime, remark
+        from sys_dict_data
+        where dict_type = 'pm_task_status'
+          and status = '0'
+        order by dict_sort asc, dict_code asc
+    </select>
+
+    <select id="selectActiveTaskCategories" resultType="com.ruoyi.common.core.domain.entity.SysDictData">
+        select dict_code as dictCode, dict_sort as dictSort, dict_label as dictLabel,
+               dict_value as dictValue, dict_type as dictType, css_class as cssClass,
+               list_class as listClass, is_default as isDefault, status, create_by as createBy,
+               create_time as createTime, update_by as updateBy, update_time as updateTime, remark
+        from sys_dict_data
+        where dict_type = 'pm_task_category'
+          and status = '0'
+        order by dict_sort asc, dict_code asc
+    </select>
+</mapper>

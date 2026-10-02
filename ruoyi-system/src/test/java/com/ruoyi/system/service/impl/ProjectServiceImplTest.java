@@ -59,6 +59,10 @@ class ProjectServiceImplTest
         LOG_MAPPER.last = null;
         LOG_MAPPER.failNextInsert.set(false);
         JDBC.update("delete from pm_requirement_owner");
+        JDBC.update("delete from pm_task_owner");
+        JDBC.update("delete from pm_task_version");
+        JDBC.update("delete from pm_task_category");
+        JDBC.update("delete from pm_task");
         JDBC.update("delete from pm_requirement");
         JDBC.update("delete from pm_project_member");
         JDBC.update("delete from pm_project");
@@ -658,6 +662,16 @@ class ProjectServiceImplTest
             jdbcTemplate.execute("create table pm_requirement_owner ("
                 + "requirement_id bigint not null, user_id bigint not null, "
                 + "primary key(requirement_id, user_id))");
+            jdbcTemplate.execute("create table pm_task ("
+                + "task_id bigint auto_increment primary key, project_id bigint not null, "
+                + "is_deleted integer not null default 0)");
+            jdbcTemplate.execute("create table pm_task_owner ("
+                + "task_id bigint not null, user_id bigint not null, primary key(task_id, user_id))");
+            jdbcTemplate.execute("create table pm_task_version ("
+                + "version_id bigint auto_increment primary key, task_id bigint not null)");
+            jdbcTemplate.execute("create table pm_task_category ("
+                + "task_id bigint not null, category_value varchar(100) not null, "
+                + "primary key(task_id, category_value))");
             return new Object();
         }
     }
@@ -858,6 +872,15 @@ class ProjectServiceImplTest
             return jdbc.queryForObject("select count(*) from pm_requirement_owner o "
                 + "inner join pm_requirement r on r.requirement_id = o.requirement_id "
                 + "where r.project_id = ? and r.is_deleted = 0 and o.user_id = ?", Integer.class,
+                projectId, userId);
+        }
+
+        @Override
+        public int countTaskOwnerReferences(Long projectId, Long userId)
+        {
+            return jdbc.queryForObject("select count(*) from pm_task_owner o "
+                + "inner join pm_task t on t.task_id = o.task_id "
+                + "where t.project_id = ? and t.is_deleted = 0 and o.user_id = ?", Integer.class,
                 projectId, userId);
         }
 

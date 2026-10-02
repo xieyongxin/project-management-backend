@@ -28,6 +28,8 @@ public interface ProjectMemberMapper
 
     int countRequirementOwnerReferences(@Param("projectId") Long projectId, @Param("userId") Long userId);
 
+    int countTaskOwnerReferences(@Param("projectId") Long projectId, @Param("userId") Long userId);
+
     SysRole selectActiveProjectRole(@Param("roleId") Long roleId);
 
     List<SysRole> selectActiveProjectRoles();

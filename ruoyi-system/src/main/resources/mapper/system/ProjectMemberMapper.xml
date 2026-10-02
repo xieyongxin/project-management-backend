@@ -91,6 +91,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
           and o.user_id = #{userId}
     </select>
 
+    <select id="countTaskOwnerReferences" resultType="int">
+        select count(*)
+        from pm_task_owner o
+        inner join pm_task t on t.task_id = o.task_id
+        where t.project_id = #{projectId}
+          and t.is_deleted = 0
+          and o.user_id = #{userId}
+    </select>
+
     <select id="selectActiveProjectRole" resultType="SysRole">
         select r.role_id as roleId, r.role_name as roleName, r.role_key as roleKey,
                r.role_sort as roleSort, r.status as status, r.del_flag as delFlag
