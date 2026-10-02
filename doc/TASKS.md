@@ -222,9 +222,9 @@
 
 状态：已完成
 
-后端提交：待提交
+后端提交：`df5c4c7`
 
-前端提交：待提交
+前端提交：`2006135`
 
 验证记录：见 `doc/plans/PM-0006.md`；后端 `mvn -B -ntp -pl ruoyi-system,ruoyi-admin -am test` 通过（system 14 项、admin 13 项），前端 `npm run build:prod` 通过；真实 HTTP 验证授予/撤销返回 200、唯一管理员撤销 400、无全局角色授予 400、非成员 404；测试库临时成员和日志已清理，恢复为 1 条成员关系、0 条项目日志。
 
