@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.ProjectMapper">
+
+    <resultMap type="Project" id="ProjectResult">
+        <id property="projectId" column="project_id" />
+        <result property="projectName" column="project_name" />
+        <result property="projectNameKey" column="project_name_key" />
+        <result property="creatorId" column="creator_id" />
+        <result property="createTime" column="create_time" />
+        <result property="updateTime" column="update_time" />
+    </resultMap>
+
+    <sql id="selectProjectColumns">
+        select p.project_id, p.project_name, p.project_name_key, p.creator_id, p.create_time, p.update_time
+        from pm_project p
+    </sql>
+
+    <insert id="insertProject" parameterType="Project" useGeneratedKeys="true" keyProperty="projectId">
+        insert into pm_project (project_name, project_name_key, creator_id, create_time, update_time)
+        values (#{projectName}, #{projectNameKey}, #{creatorId}, #{createTime}, #{updateTime})
+    </insert>
+
+    <select id="selectProjectListForUser" resultMap="ProjectResult">
+        <include refid="selectProjectColumns" />
+        inner join pm_project_member m on m.project_id = p.project_id
+        where m.user_id = #{userId}
+        <if test="projectName != null and projectName != ''">
+            and p.project_name like concat('%', #{projectName}, '%')
+        </if>
+    </select>
+
+    <select id="selectProjectForUser" resultMap="ProjectResult">
+        <include refid="selectProjectColumns" />
+        inner join pm_project_member m on m.project_id = p.project_id
+        where p.project_id = #{projectId}
+          and m.user_id = #{userId}
+    </select>
+</mapper>

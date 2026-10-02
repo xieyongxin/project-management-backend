@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.ProjectMemberMapper">
+
+    <insert id="insertProjectMember" parameterType="ProjectMember">
+        insert into pm_project_member (project_id, user_id, is_project_admin, create_time, update_time)
+        values (#{projectId}, #{userId}, #{isProjectAdmin}, #{createTime}, #{updateTime})
+    </insert>
+</mapper>
