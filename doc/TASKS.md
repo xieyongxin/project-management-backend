@@ -182,6 +182,6 @@
 
 前端提交：`3c4ffd0`
 
-验证记录：见 `doc/plans/PM-0004.md`；远程迁移前备份为 `/home/ubuntu/ruoyi-test/backups/before-pm0004-20261002-204242.sql`，迁移后 `role_id` 列存在，现有 1 条成员关系保持角色为空、管理员标记为 1；脚本连续执行两次均成功。
+验证记录：见 `doc/plans/PM-0004.md`；远程迁移前备份为 `/home/ubuntu/ruoyi-test/backups/before-pm0004-20261002-204242.sql`，迁移后 `role_id` 列存在，现有 1 条成员关系保持角色为空、管理员标记为 1；脚本连续执行两次均成功。真实 HTTP 登录后，项目列表和 `/project/1/members` 均成功返回，未认证请求被拒绝。
 
 阻塞与待确认：成员添加、用户搜索和角色调整不属于本任务；ACC-04 的匹配方式、结果数量和分页仍待确认。
