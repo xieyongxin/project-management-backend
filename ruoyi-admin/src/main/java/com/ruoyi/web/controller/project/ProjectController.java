@@ -7,6 +7,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -15,13 +16,17 @@ import com.ruoyi.common.constant.HttpStatus;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
+import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.system.domain.Project;
 import com.ruoyi.system.domain.ProjectMember;
+import com.ruoyi.common.core.domain.entity.SysRole;
 import com.ruoyi.system.service.IProjectService;
 import com.ruoyi.web.domain.project.ProjectCreateRequest;
 import com.ruoyi.web.domain.project.ProjectView;
 import com.ruoyi.web.domain.project.ProjectMemberView;
+import com.ruoyi.web.domain.project.ProjectMemberRoleRequest;
+import com.ruoyi.web.domain.project.ProjectRoleOptionView;
 
 @RestController
 @RequestMapping("/project")
@@ -94,9 +99,70 @@ public class ProjectController extends BaseController
         return ResponseEntity.ok(success(members.stream().map(ProjectMemberView::from).toList()));
     }
 
+    @GetMapping("/{projectId}/members/roles")
+    public ResponseEntity<AjaxResult> memberRoleOptions(@PathVariable String projectId)
+    {
+        Long parsedProjectId = parseProjectId(projectId);
+        if (parsedProjectId == null)
+        {
+            return notFound();
+        }
+        try
+        {
+            List<SysRole> roles = projectService.selectProjectRoleOptionsForAdmin(parsedProjectId, getUserId());
+            return ResponseEntity.ok(success(roles.stream().map(ProjectRoleOptionView::from).toList()));
+        }
+        catch (ServiceException e)
+        {
+            return serviceError(e);
+        }
+    }
+
+    @PutMapping("/{projectId}/members/{memberUserId}/role")
+    public ResponseEntity<AjaxResult> updateMemberRole(@PathVariable String projectId,
+        @PathVariable String memberUserId, @Validated @RequestBody ProjectMemberRoleRequest request)
+    {
+        Long parsedProjectId = parseProjectId(projectId);
+        Long parsedMemberUserId = parseProjectId(memberUserId);
+        if (parsedProjectId == null || parsedMemberUserId == null)
+        {
+            return notFound();
+        }
+        try
+        {
+            ProjectMember member = projectService.updateProjectMemberRole(parsedProjectId, getUserId(),
+                parsedMemberUserId, request.getRoleId());
+            return ResponseEntity.ok(success(ProjectMemberView.from(member)));
+        }
+        catch (ServiceException e)
+        {
+            return serviceError(e);
+        }
+    }
+
+    private Long parseProjectId(String projectId)
+    {
+        try
+        {
+            return Long.valueOf(projectId);
+        }
+        catch (NumberFormatException e)
+        {
+            return null;
+        }
+    }
+
     private ResponseEntity<AjaxResult> notFound()
     {
         AjaxResult result = AjaxResult.error(HttpStatus.NOT_FOUND, "项目不存在或无权访问");
         return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND).body(result);
+    }
+
+    private ResponseEntity<AjaxResult> serviceError(ServiceException error)
+    {
+        int code = error.getCode() == null ? HttpStatus.ERROR : error.getCode();
+        AjaxResult result = AjaxResult.error(code, error.getMessage());
+        int status = code >= 400 && code < 600 ? code : org.springframework.http.HttpStatus.OK.value();
+        return ResponseEntity.status(status).body(result);
     }
 }

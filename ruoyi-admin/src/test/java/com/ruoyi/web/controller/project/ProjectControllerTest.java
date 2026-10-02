@@ -29,11 +29,15 @@ import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.constant.HttpStatus;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.core.domain.model.LoginUser;
+import com.ruoyi.common.core.domain.entity.SysRole;
+import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.framework.web.service.PermissionService;
 import com.ruoyi.system.domain.Project;
 import com.ruoyi.system.domain.ProjectMember;
 import com.ruoyi.system.service.IProjectService;
 import com.ruoyi.web.domain.project.ProjectCreateRequest;
+import com.ruoyi.web.domain.project.ProjectMemberRoleRequest;
+import com.ruoyi.web.domain.project.ProjectMemberView;
 
 class ProjectControllerTest
 {
@@ -120,6 +124,52 @@ class ProjectControllerTest
 
         assertEquals(404, response.getStatusCode().value());
         verifyNoInteractions(projectService);
+    }
+
+    @Test
+    void projectAdminCanReadRoleOptions()
+    {
+        setCurrentUser(23L);
+        SysRole role = new SysRole(7L);
+        role.setRoleName("项目成员");
+        when(projectService.selectProjectRoleOptionsForAdmin(41L, 23L)).thenReturn(List.of(role));
+
+        ResponseEntity<AjaxResult> response = controller.memberRoleOptions("41");
+
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals(1, ((List<?>) response.getBody().get("data")).size());
+    }
+
+    @Test
+    void roleOptionsPropagateProjectAccessStatus()
+    {
+        setCurrentUser(23L);
+        when(projectService.selectProjectRoleOptionsForAdmin(41L, 23L))
+            .thenThrow(new ServiceException("只有项目管理员可以调整成员角色", HttpStatus.FORBIDDEN));
+
+        ResponseEntity<AjaxResult> response = controller.memberRoleOptions("41");
+
+        assertEquals(403, response.getStatusCode().value());
+        assertEquals(HttpStatus.FORBIDDEN, response.getBody().get("code"));
+    }
+
+    @Test
+    void projectAdminCanUpdateMemberRole()
+    {
+        setCurrentUser(23L);
+        ProjectMember member = new ProjectMember();
+        member.setUserId(24L);
+        member.setRoleId(7L);
+        member.setRoleName("项目成员");
+        when(projectService.updateProjectMemberRole(41L, 23L, 24L, 7L)).thenReturn(member);
+        ProjectMemberRoleRequest request = new ProjectMemberRoleRequest();
+        request.setRoleId(7L);
+
+        ResponseEntity<AjaxResult> response = controller.updateMemberRole("41", "24", request);
+
+        assertEquals(200, response.getStatusCode().value());
+        verify(projectService).updateProjectMemberRole(41L, 23L, 24L, 7L);
+        assertEquals(7L, ((ProjectMemberView) response.getBody().get("data")).getRoleId());
     }
 
     @Test

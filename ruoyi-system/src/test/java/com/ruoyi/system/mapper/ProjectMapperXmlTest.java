@@ -20,6 +20,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import com.ruoyi.system.domain.Project;
 import com.ruoyi.system.domain.ProjectMember;
+import com.ruoyi.system.domain.ProjectOperationLog;
+import com.ruoyi.common.core.domain.entity.SysRole;
 
 class ProjectMapperXmlTest
 {
@@ -44,14 +46,22 @@ class ProjectMapperXmlTest
             + "project_id bigint not null, user_id bigint not null, role_id bigint null, is_project_admin integer not null, "
             + "create_time timestamp not null, update_time timestamp not null, primary key(project_id, user_id))");
         jdbc.execute("create table sys_user (user_id bigint primary key, user_name varchar(30), nick_name varchar(30), email varchar(50))");
-        jdbc.execute("create table sys_role (role_id bigint primary key, role_name varchar(30))");
+        jdbc.execute("create table sys_role (role_id bigint primary key, role_name varchar(30), role_key varchar(100), "
+            + "role_sort integer, status varchar(1), del_flag varchar(1))");
+        jdbc.execute("create table pm_project_operation_log ("
+            + "log_id bigint auto_increment primary key, project_id bigint not null, operator_id bigint not null, "
+            + "target_user_id bigint, previous_role_id bigint, new_role_id bigint, operation_type varchar(64) not null, "
+            + "detail varchar(1000), create_time timestamp not null)");
 
         Configuration configuration = new Configuration(
             new Environment("pm0002-test", new JdbcTransactionFactory(), dataSource));
         configuration.getTypeAliasRegistry().registerAlias("Project", Project.class);
         configuration.getTypeAliasRegistry().registerAlias("ProjectMember", ProjectMember.class);
+        configuration.getTypeAliasRegistry().registerAlias("SysRole", SysRole.class);
+        configuration.getTypeAliasRegistry().registerAlias("ProjectOperationLog", ProjectOperationLog.class);
         parseMapper(configuration, "mapper/system/ProjectMapper.xml");
         parseMapper(configuration, "mapper/system/ProjectMemberMapper.xml");
+        parseMapper(configuration, "mapper/system/ProjectOperationLogMapper.xml");
         sqlSessionFactory = new SqlSessionFactoryBuilder().build(configuration);
     }
 
@@ -69,7 +79,8 @@ class ProjectMapperXmlTest
             memberMapper.insertProjectMember(member(second, 21L, now));
             jdbc.update("insert into sys_user (user_id, user_name, nick_name, email) values (21, 'alice', 'Alice', 'alice@example.com')");
             jdbc.update("insert into sys_user (user_id, user_name, nick_name, email) values (22, 'bob', 'Bob', 'bob@example.com')");
-            jdbc.update("insert into sys_role (role_id, role_name) values (7, '项目成员')");
+            jdbc.update("insert into sys_role (role_id, role_name, role_key, role_sort, status, del_flag) "
+                + "values (7, '项目成员', 'project_member', 1, '0', '0')");
             ProjectMember secondMember = member(second, 22L, now);
             secondMember.setRoleId(7L);
             memberMapper.insertProjectMember(secondMember);
@@ -89,6 +100,21 @@ class ProjectMapperXmlTest
             assertEquals("bob", members.get(1).getUserName());
             assertEquals("项目成员", members.get(1).getRoleName());
             assertEquals(0, memberMapper.selectProjectMembersForUser(second.getProjectId(), 1L).size());
+            assertEquals("bob", memberMapper.selectProjectMember(second.getProjectId(), 22L).getUserName());
+            assertEquals("项目成员", memberMapper.selectActiveProjectRole(7L).getRoleName());
+            assertEquals(1, memberMapper.selectActiveProjectRoles().size());
+            assertEquals(1, memberMapper.updateProjectMemberRole(second.getProjectId(), 21L, 7L));
+
+            ProjectOperationLog log = new ProjectOperationLog();
+            log.setProjectId(second.getProjectId());
+            log.setOperatorId(21L);
+            log.setTargetUserId(22L);
+            log.setPreviousRoleId(null);
+            log.setNewRoleId(7L);
+            log.setOperationType("MEMBER_ROLE_UPDATE");
+            log.setDetail("更新项目成员全局角色");
+            log.setCreateTime(now);
+            assertEquals(1, session.getMapper(ProjectOperationLogMapper.class).insertProjectOperationLog(log));
         }
     }
 

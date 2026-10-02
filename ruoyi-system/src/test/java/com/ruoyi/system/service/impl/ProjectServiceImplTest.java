@@ -28,8 +28,10 @@ import com.ruoyi.common.constant.HttpStatus;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.system.domain.Project;
 import com.ruoyi.system.domain.ProjectMember;
+import com.ruoyi.system.domain.ProjectOperationLog;
 import com.ruoyi.system.mapper.ProjectMapper;
 import com.ruoyi.system.mapper.ProjectMemberMapper;
+import com.ruoyi.system.mapper.ProjectOperationLogMapper;
 import com.ruoyi.system.service.IProjectService;
 
 class ProjectServiceImplTest
@@ -39,6 +41,7 @@ class ProjectServiceImplTest
     private static final JdbcTemplate JDBC = CONTEXT.getBean(JdbcTemplate.class);
     private static final IProjectService SERVICE = CONTEXT.getBean(IProjectService.class);
     private static final TestProjectMemberMapper MEMBER_MAPPER = CONTEXT.getBean(TestProjectMemberMapper.class);
+    private static final TestProjectOperationLogMapper LOG_MAPPER = CONTEXT.getBean(TestProjectOperationLogMapper.class);
 
     @AfterAll
     static void closeContext()
@@ -50,6 +53,11 @@ class ProjectServiceImplTest
     void cleanTables()
     {
         MEMBER_MAPPER.failNextInsert.set(false);
+        MEMBER_MAPPER.roles.clear();
+        MEMBER_MAPPER.inactiveRoles.clear();
+        LOG_MAPPER.logs.clear();
+        LOG_MAPPER.last = null;
+        LOG_MAPPER.failNextInsert.set(false);
         JDBC.update("delete from pm_project_member");
         JDBC.update("delete from pm_project");
     }
@@ -129,6 +137,71 @@ class ProjectServiceImplTest
         assertNull(SERVICE.selectProjectForUser(first.getProjectId(), 1L));
     }
 
+    @Test
+    void projectAdminCanAssignActiveRoleAndOperationIsLogged()
+    {
+        Project project = SERVICE.createProject("Role project", 21L);
+        ProjectMember member = new ProjectMember();
+        member.setProjectId(project.getProjectId());
+        member.setUserId(22L);
+        member.setIsProjectAdmin(0);
+        member.setCreateTime(new java.util.Date());
+        member.setUpdateTime(new java.util.Date());
+        MEMBER_MAPPER.insertProjectMember(member);
+        MEMBER_MAPPER.roles.put(7L, "项目成员");
+
+        ProjectMember updated = SERVICE.updateProjectMemberRole(project.getProjectId(), 21L, 22L, 7L);
+
+        assertEquals(7L, updated.getRoleId());
+        assertEquals(1, LOG_MAPPER.logs.size());
+        assertEquals("MEMBER_ROLE_UPDATE", LOG_MAPPER.last.getOperationType());
+        assertNull(LOG_MAPPER.last.getPreviousRoleId());
+        assertEquals(7L, LOG_MAPPER.last.getNewRoleId());
+    }
+
+    @Test
+    void nonAdminCannotAssignRoleAndInactiveRoleIsRejected()
+    {
+        Project project = SERVICE.createProject("Role boundary project", 21L);
+        ProjectMember member = new ProjectMember();
+        member.setProjectId(project.getProjectId());
+        member.setUserId(22L);
+        member.setIsProjectAdmin(0);
+        member.setCreateTime(new java.util.Date());
+        member.setUpdateTime(new java.util.Date());
+        MEMBER_MAPPER.insertProjectMember(member);
+        MEMBER_MAPPER.roles.put(7L, "项目成员");
+        MEMBER_MAPPER.roles.put(8L, "已停用");
+        MEMBER_MAPPER.inactiveRoles.add(8L);
+
+        assertThrows(ServiceException.class,
+            () -> SERVICE.updateProjectMemberRole(project.getProjectId(), 22L, 22L, 7L));
+        assertThrows(ServiceException.class,
+            () -> SERVICE.updateProjectMemberRole(project.getProjectId(), 21L, 22L, 8L));
+        assertEquals(0, LOG_MAPPER.logs.size());
+    }
+
+    @Test
+    void roleUpdateRollsBackWhenOperationLogCannotBeWritten()
+    {
+        Project project = SERVICE.createProject("Role transaction project", 21L);
+        ProjectMember member = new ProjectMember();
+        member.setProjectId(project.getProjectId());
+        member.setUserId(22L);
+        member.setIsProjectAdmin(0);
+        member.setCreateTime(new java.util.Date());
+        member.setUpdateTime(new java.util.Date());
+        MEMBER_MAPPER.insertProjectMember(member);
+        MEMBER_MAPPER.roles.put(7L, "项目成员");
+        LOG_MAPPER.failNextInsert.set(true);
+
+        assertThrows(IllegalStateException.class,
+            () -> SERVICE.updateProjectMemberRole(project.getProjectId(), 21L, 22L, 7L));
+
+        assertNull(MEMBER_MAPPER.selectProjectMember(project.getProjectId(), 22L).getRoleId());
+        assertEquals(0, LOG_MAPPER.logs.size());
+    }
+
     private int count(String table)
     {
         return JDBC.queryForObject("select count(*) from " + table, Integer.class);
@@ -172,9 +245,16 @@ class ProjectServiceImplTest
         }
 
         @Bean
-        IProjectService projectService(ProjectMapper projectMapper, ProjectMemberMapper projectMemberMapper)
+        TestProjectOperationLogMapper projectOperationLogMapper()
         {
-            return new ProjectServiceImpl(projectMapper, projectMemberMapper);
+            return new TestProjectOperationLogMapper();
+        }
+
+        @Bean
+        IProjectService projectService(ProjectMapper projectMapper, ProjectMemberMapper projectMemberMapper,
+            ProjectOperationLogMapper projectOperationLogMapper)
+        {
+            return new ProjectServiceImpl(projectMapper, projectMemberMapper, projectOperationLogMapper);
         }
 
         @Bean
@@ -262,6 +342,8 @@ class ProjectServiceImplTest
     {
         private final JdbcTemplate jdbc;
         private final AtomicBoolean failNextInsert = new AtomicBoolean();
+        private final java.util.Map<Long, String> roles = new java.util.HashMap<>();
+        private final java.util.Set<Long> inactiveRoles = new java.util.HashSet<>();
 
         TestProjectMemberMapper(JdbcTemplate jdbc)
         {
@@ -295,6 +377,73 @@ class ProjectServiceImplTest
                     member.setIsProjectAdmin(resultSet.getInt("is_project_admin"));
                     return member;
                 }, projectId, projectId, userId);
+        }
+
+        @Override
+        public ProjectMember selectProjectMember(Long projectId, Long userId)
+        {
+            List<ProjectMember> members = jdbc.query(
+                "select * from pm_project_member where project_id = ? and user_id = ?",
+                (resultSet, rowNum) -> {
+                    ProjectMember member = new ProjectMember();
+                    member.setProjectId(resultSet.getLong("project_id"));
+                    member.setUserId(resultSet.getLong("user_id"));
+                    member.setRoleId((Long) resultSet.getObject("role_id"));
+                    member.setIsProjectAdmin(resultSet.getInt("is_project_admin"));
+                    member.setRoleName(roles.get(member.getRoleId()));
+                    return member;
+                }, projectId, userId);
+            return members.isEmpty() ? null : members.get(0);
+        }
+
+        @Override
+        public int updateProjectMemberRole(Long projectId, Long userId, Long roleId)
+        {
+            return jdbc.update("update pm_project_member set role_id = ? where project_id = ? and user_id = ?",
+                roleId, projectId, userId);
+        }
+
+        @Override
+        public com.ruoyi.common.core.domain.entity.SysRole selectActiveProjectRole(Long roleId)
+        {
+            if (inactiveRoles.contains(roleId) || (!roles.isEmpty() && !roles.containsKey(roleId)))
+            {
+                return null;
+            }
+            com.ruoyi.common.core.domain.entity.SysRole role = new com.ruoyi.common.core.domain.entity.SysRole();
+            role.setRoleId(roleId);
+            role.setRoleName(roles.getOrDefault(roleId, "Role " + roleId));
+            return role;
+        }
+
+        @Override
+        public List<com.ruoyi.common.core.domain.entity.SysRole> selectActiveProjectRoles()
+        {
+            return roles.entrySet().stream().map(entry -> {
+                com.ruoyi.common.core.domain.entity.SysRole role = new com.ruoyi.common.core.domain.entity.SysRole();
+                role.setRoleId(entry.getKey());
+                role.setRoleName(entry.getValue());
+                return role;
+            }).toList();
+        }
+    }
+
+    static class TestProjectOperationLogMapper implements ProjectOperationLogMapper
+    {
+        private final List<ProjectOperationLog> logs = new java.util.ArrayList<>();
+        private final AtomicBoolean failNextInsert = new AtomicBoolean();
+        private ProjectOperationLog last;
+
+        @Override
+        public int insertProjectOperationLog(ProjectOperationLog log)
+        {
+            if (failNextInsert.compareAndSet(true, false))
+            {
+                throw new IllegalStateException("Injected project log write failure");
+            }
+            last = log;
+            logs.add(log);
+            return 1;
         }
     }
 }
