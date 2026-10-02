@@ -22,6 +22,8 @@ public interface IProjectService
 
     List<SysRole> selectProjectRoleOptionsForAdmin(Long projectId, Long userId);
 
+    ProjectMember addProjectMember(Long projectId, Long operatorId, Long memberUserId, Long roleId);
+
     ProjectMember updateProjectMemberRole(Long projectId, Long operatorId, Long memberUserId, Long roleId);
 
     ProjectMember updateProjectMemberAdmin(Long projectId, Long operatorId, Long memberUserId,

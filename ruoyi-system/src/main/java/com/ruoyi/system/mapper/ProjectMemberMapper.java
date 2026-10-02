@@ -14,6 +14,8 @@ public interface ProjectMemberMapper
 
     ProjectMember selectProjectMember(@Param("projectId") Long projectId, @Param("userId") Long userId);
 
+    ProjectMember selectActiveProjectMemberUser(@Param("userId") Long userId);
+
     int updateProjectMemberRole(@Param("projectId") Long projectId, @Param("userId") Long userId,
         @Param("roleId") Long roleId);
 

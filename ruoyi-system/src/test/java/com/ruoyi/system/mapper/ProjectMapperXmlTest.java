@@ -45,7 +45,8 @@ class ProjectMapperXmlTest
         jdbc.execute("create table pm_project_member ("
             + "project_id bigint not null, user_id bigint not null, role_id bigint null, is_project_admin integer not null, "
             + "create_time timestamp not null, update_time timestamp not null, primary key(project_id, user_id))");
-        jdbc.execute("create table sys_user (user_id bigint primary key, user_name varchar(30), nick_name varchar(30), email varchar(50))");
+        jdbc.execute("create table sys_user (user_id bigint primary key, user_name varchar(30), nick_name varchar(30), "
+            + "email varchar(50), status varchar(1) not null default '0', del_flag varchar(1) not null default '0')");
         jdbc.execute("create table sys_role (role_id bigint primary key, role_name varchar(30), role_key varchar(100), "
             + "role_sort integer, status varchar(1), del_flag varchar(1))");
         jdbc.execute("create table pm_project_operation_log ("
@@ -77,8 +78,10 @@ class ProjectMapperXmlTest
             Project second = insertProject(projectMapper, "Beta project", "beta project", 22L, now);
             memberMapper.insertProjectMember(member(first, 21L, now));
             memberMapper.insertProjectMember(member(second, 21L, now));
-            jdbc.update("insert into sys_user (user_id, user_name, nick_name, email) values (21, 'alice', 'Alice', 'alice@example.com')");
-            jdbc.update("insert into sys_user (user_id, user_name, nick_name, email) values (22, 'bob', 'Bob', 'bob@example.com')");
+            jdbc.update("insert into sys_user (user_id, user_name, nick_name, email, status, del_flag) "
+                + "values (21, 'alice', 'Alice', 'alice@example.com', '0', '0')");
+            jdbc.update("insert into sys_user (user_id, user_name, nick_name, email, status, del_flag) "
+                + "values (22, 'bob', 'Bob', 'bob@example.com', '0', '0')");
             jdbc.update("insert into sys_role (role_id, role_name, role_key, role_sort, status, del_flag) "
                 + "values (7, '项目成员', 'project_member', 1, '0', '0')");
             ProjectMember secondMember = member(second, 22L, now);
@@ -104,6 +107,10 @@ class ProjectMapperXmlTest
             assertEquals("bob", memberMapper.selectProjectMember(second.getProjectId(), 22L).getUserName());
             assertEquals("项目成员", memberMapper.selectActiveProjectRole(7L).getRoleName());
             assertEquals(1, memberMapper.selectActiveProjectRoles().size());
+            assertEquals("bob", memberMapper.selectActiveProjectMemberUser(22L).getUserName());
+            jdbc.update("insert into sys_user (user_id, user_name, status, del_flag) values (23, 'disabled', '1', '0')");
+            assertNull(memberMapper.selectActiveProjectMemberUser(23L));
+            assertNull(memberMapper.selectActiveProjectMemberUser(99L));
             assertEquals(1, memberMapper.updateProjectMemberRole(second.getProjectId(), 21L, 7L));
             assertEquals(second.getProjectId(), projectMapper.lockProjectForUpdate(second.getProjectId()));
             assertEquals(2, memberMapper.countProjectAdmins(second.getProjectId()));

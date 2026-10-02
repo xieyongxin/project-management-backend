@@ -208,6 +208,71 @@ public class ProjectServiceImpl implements IProjectService
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public ProjectMember addProjectMember(Long projectId, Long operatorId, Long memberUserId, Long roleId)
+    {
+        if (projectId == null || projectMapper.lockProjectForUpdate(projectId) == null)
+        {
+            throw new ServiceException("项目不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        requireProjectAdmin(projectId, operatorId);
+        if (memberUserId == null)
+        {
+            throw new ServiceException("用户不能为空", HttpStatus.BAD_REQUEST);
+        }
+        if (roleId == null)
+        {
+            throw new ServiceException("项目角色不能为空", HttpStatus.BAD_REQUEST);
+        }
+        if (projectMemberMapper.selectActiveProjectMemberUser(memberUserId) == null)
+        {
+            throw new ServiceException("用户不存在、已停用或已删除", HttpStatus.BAD_REQUEST);
+        }
+        if (projectMemberMapper.selectActiveProjectRole(roleId) == null)
+        {
+            throw new ServiceException("项目角色不存在或已停用", HttpStatus.BAD_REQUEST);
+        }
+        if (projectMemberMapper.selectProjectMember(projectId, memberUserId) != null)
+        {
+            throw new ServiceException("用户已经是项目成员", HttpStatus.CONFLICT);
+        }
+
+        Date now = new Date();
+        ProjectMember member = new ProjectMember();
+        member.setProjectId(projectId);
+        member.setUserId(memberUserId);
+        member.setRoleId(roleId);
+        member.setIsProjectAdmin(0);
+        member.setCreateTime(now);
+        member.setUpdateTime(now);
+        try
+        {
+            if (projectMemberMapper.insertProjectMember(member) != 1)
+            {
+                throw new ServiceException("添加项目成员失败");
+            }
+        }
+        catch (DuplicateKeyException e)
+        {
+            throw new ServiceException("用户已经是项目成员", HttpStatus.CONFLICT);
+        }
+
+        ProjectOperationLog log = new ProjectOperationLog();
+        log.setProjectId(projectId);
+        log.setOperatorId(operatorId);
+        log.setTargetUserId(memberUserId);
+        log.setNewRoleId(roleId);
+        log.setOperationType("MEMBER_ADD");
+        log.setDetail("添加项目成员并绑定全局角色");
+        log.setCreateTime(now);
+        if (projectOperationLogMapper.insertProjectOperationLog(log) != 1)
+        {
+            throw new ServiceException("记录项目操作日志失败");
+        }
+        return projectMemberMapper.selectProjectMember(projectId, memberUserId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public ProjectMember updateProjectMemberRole(Long projectId, Long operatorId, Long memberUserId, Long roleId)
     {
         requireProjectAdmin(projectId, operatorId);

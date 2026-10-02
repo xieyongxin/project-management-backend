@@ -27,6 +27,7 @@ import com.ruoyi.system.service.IProjectService;
 import com.ruoyi.web.domain.project.ProjectCreateRequest;
 import com.ruoyi.web.domain.project.ProjectView;
 import com.ruoyi.web.domain.project.ProjectMemberView;
+import com.ruoyi.web.domain.project.ProjectMemberAddRequest;
 import com.ruoyi.web.domain.project.ProjectMemberRoleRequest;
 import com.ruoyi.web.domain.project.ProjectMemberAdminRequest;
 import com.ruoyi.web.domain.project.ProjectNameUpdateRequest;
@@ -157,6 +158,27 @@ public class ProjectController extends BaseController
         {
             List<SysRole> roles = projectService.selectProjectRoleOptionsForAdmin(parsedProjectId, getUserId());
             return ResponseEntity.ok(success(roles.stream().map(ProjectRoleOptionView::from).toList()));
+        }
+        catch (ServiceException e)
+        {
+            return serviceError(e);
+        }
+    }
+
+    @PostMapping("/{projectId}/members")
+    public ResponseEntity<AjaxResult> addMember(@PathVariable String projectId,
+        @Validated @RequestBody ProjectMemberAddRequest request)
+    {
+        Long parsedProjectId = parseProjectId(projectId);
+        if (parsedProjectId == null)
+        {
+            return notFound();
+        }
+        try
+        {
+            ProjectMember member = projectService.addProjectMember(parsedProjectId, getUserId(),
+                request.getUserId(), request.getRoleId());
+            return ResponseEntity.ok(success(ProjectMemberView.from(member)));
         }
         catch (ServiceException e)
         {

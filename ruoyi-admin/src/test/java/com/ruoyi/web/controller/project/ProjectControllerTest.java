@@ -40,6 +40,7 @@ import com.ruoyi.system.service.IProjectService;
 import com.ruoyi.web.domain.project.ProjectCreateRequest;
 import com.ruoyi.web.domain.project.ProjectMemberRoleRequest;
 import com.ruoyi.web.domain.project.ProjectMemberAdminRequest;
+import com.ruoyi.web.domain.project.ProjectMemberAddRequest;
 import com.ruoyi.web.domain.project.ProjectNameUpdateRequest;
 import com.ruoyi.web.domain.project.ProjectMemberView;
 import com.ruoyi.web.domain.project.ProjectArchiveRequest;
@@ -175,6 +176,57 @@ class ProjectControllerTest
         assertEquals(200, response.getStatusCode().value());
         verify(projectService).updateProjectMemberRole(41L, 23L, 24L, 7L);
         assertEquals(7L, ((ProjectMemberView) response.getBody().get("data")).getRoleId());
+    }
+
+    @Test
+    void projectAdminCanAddProjectMemberWithRole()
+    {
+        setCurrentUser(23L);
+        ProjectMember member = new ProjectMember();
+        member.setUserId(24L);
+        member.setRoleId(7L);
+        member.setIsProjectAdmin(0);
+        when(projectService.addProjectMember(41L, 23L, 24L, 7L)).thenReturn(member);
+        ProjectMemberAddRequest request = new ProjectMemberAddRequest();
+        request.setUserId(24L);
+        request.setRoleId(7L);
+
+        ResponseEntity<AjaxResult> response = controller.addMember("41", request);
+
+        assertEquals(200, response.getStatusCode().value());
+        verify(projectService).addProjectMember(41L, 23L, 24L, 7L);
+        assertEquals(24L, ((ProjectMemberView) response.getBody().get("data")).getUserId());
+        assertEquals(7L, ((ProjectMemberView) response.getBody().get("data")).getRoleId());
+    }
+
+    @Test
+    void malformedMemberAddProjectIdUsesHttp404WithoutQueryingService()
+    {
+        setCurrentUser(23L);
+        ProjectMemberAddRequest request = new ProjectMemberAddRequest();
+        request.setUserId(24L);
+        request.setRoleId(7L);
+
+        ResponseEntity<AjaxResult> response = controller.addMember("not-a-number", request);
+
+        assertEquals(404, response.getStatusCode().value());
+        verifyNoInteractions(projectService);
+    }
+
+    @Test
+    void memberAddPropagatesProjectAccessStatus()
+    {
+        setCurrentUser(23L);
+        doThrow(new ServiceException("只有项目管理员可以管理项目", HttpStatus.FORBIDDEN))
+            .when(projectService).addProjectMember(41L, 23L, 24L, 7L);
+        ProjectMemberAddRequest request = new ProjectMemberAddRequest();
+        request.setUserId(24L);
+        request.setRoleId(7L);
+
+        ResponseEntity<AjaxResult> response = controller.addMember("41", request);
+
+        assertEquals(403, response.getStatusCode().value());
+        assertEquals(HttpStatus.FORBIDDEN, response.getBody().get("code"));
     }
 
     @Test
@@ -345,6 +397,21 @@ class ProjectControllerTest
             assertEquals(0, validator.validate(request("A".repeat(255))).size());
             assertEquals(1, validator.validate(request("A".repeat(256))).size());
             assertEquals(1, validator.validate(request("   ")).size());
+        }
+    }
+
+    @Test
+    void memberAddRequestRequiresUserAndRole()
+    {
+        try (ValidatorFactory factory = Validation.buildDefaultValidatorFactory())
+        {
+            var validator = factory.getValidator();
+            ProjectMemberAddRequest request = new ProjectMemberAddRequest();
+            assertEquals(2, validator.validate(request).size());
+            request.setUserId(24L);
+            assertEquals(1, validator.validate(request).size());
+            request.setRoleId(7L);
+            assertEquals(0, validator.validate(request).size());
         }
     }
 

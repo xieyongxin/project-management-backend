@@ -60,6 +60,7 @@ class ProjectServiceImplTest
         LOG_MAPPER.failNextInsert.set(false);
         JDBC.update("delete from pm_project_member");
         JDBC.update("delete from pm_project");
+        JDBC.update("delete from sys_user");
     }
 
     @Test
@@ -253,6 +254,107 @@ class ProjectServiceImplTest
         assertEquals("MEMBER_ROLE_UPDATE", LOG_MAPPER.last.getOperationType());
         assertNull(LOG_MAPPER.last.getPreviousRoleId());
         assertEquals(7L, LOG_MAPPER.last.getNewRoleId());
+    }
+
+    @Test
+    void projectAdminCanAddActiveUserWithActiveRoleAndOperationIsLogged()
+    {
+        Project project = SERVICE.createProject("Member add project", 21L);
+        insertUser(22L, "bob", "Bob", "bob@example.com", "0", "0");
+        MEMBER_MAPPER.roles.put(7L, "项目成员");
+
+        ProjectMember added = SERVICE.addProjectMember(project.getProjectId(), 21L, 22L, 7L);
+
+        assertEquals(22L, added.getUserId());
+        assertEquals(7L, added.getRoleId());
+        assertEquals(0, added.getIsProjectAdmin());
+        assertEquals(1, count("pm_project_member") - 1);
+        assertEquals("MEMBER_ADD", LOG_MAPPER.last.getOperationType());
+        assertEquals(22L, LOG_MAPPER.last.getTargetUserId());
+        assertEquals(7L, LOG_MAPPER.last.getNewRoleId());
+    }
+
+    @Test
+    void addingMemberRequiresAdministratorAndProjectMembership()
+    {
+        Project project = SERVICE.createProject("Member add permission project", 21L);
+        insertUser(22L, "bob", "Bob", "bob@example.com", "0", "0");
+        MEMBER_MAPPER.roles.put(7L, "项目成员");
+        addMember(project, 23L, 7L, 0);
+
+        ServiceException nonAdmin = assertThrows(ServiceException.class,
+            () -> SERVICE.addProjectMember(project.getProjectId(), 23L, 22L, 7L));
+        ServiceException nonMember = assertThrows(ServiceException.class,
+            () -> SERVICE.addProjectMember(project.getProjectId(), 99L, 22L, 7L));
+
+        assertEquals(HttpStatus.FORBIDDEN, nonAdmin.getCode());
+        assertEquals(HttpStatus.NOT_FOUND, nonMember.getCode());
+        assertEquals(0, LOG_MAPPER.logs.size());
+    }
+
+    @Test
+    void addingMemberRejectsInvalidUserRoleAndDuplicate()
+    {
+        Project project = SERVICE.createProject("Member add validation project", 21L);
+        MEMBER_MAPPER.roles.put(7L, "项目成员");
+        MEMBER_MAPPER.roles.put(8L, "已停用");
+        MEMBER_MAPPER.inactiveRoles.add(8L);
+        insertUser(22L, "bob", "Bob", "bob@example.com", "0", "0");
+        insertUser(23L, "disabled", "Disabled", "disabled@example.com", "1", "0");
+        insertUser(24L, "deleted", "Deleted", "deleted@example.com", "0", "2");
+
+        ServiceException missingUser = assertThrows(ServiceException.class,
+            () -> SERVICE.addProjectMember(project.getProjectId(), 21L, 99L, 7L));
+        ServiceException disabledUser = assertThrows(ServiceException.class,
+            () -> SERVICE.addProjectMember(project.getProjectId(), 21L, 23L, 7L));
+        ServiceException deletedUser = assertThrows(ServiceException.class,
+            () -> SERVICE.addProjectMember(project.getProjectId(), 21L, 24L, 7L));
+        ServiceException inactiveRole = assertThrows(ServiceException.class,
+            () -> SERVICE.addProjectMember(project.getProjectId(), 21L, 22L, 8L));
+        ServiceException missingRole = assertThrows(ServiceException.class,
+            () -> SERVICE.addProjectMember(project.getProjectId(), 21L, 22L, 99L));
+
+        assertEquals(HttpStatus.BAD_REQUEST, missingUser.getCode());
+        assertEquals(HttpStatus.BAD_REQUEST, disabledUser.getCode());
+        assertEquals(HttpStatus.BAD_REQUEST, deletedUser.getCode());
+        assertEquals(HttpStatus.BAD_REQUEST, inactiveRole.getCode());
+        assertEquals(HttpStatus.BAD_REQUEST, missingRole.getCode());
+
+        SERVICE.addProjectMember(project.getProjectId(), 21L, 22L, 7L);
+        ServiceException duplicate = assertThrows(ServiceException.class,
+            () -> SERVICE.addProjectMember(project.getProjectId(), 21L, 22L, 7L));
+        assertEquals(HttpStatus.CONFLICT, duplicate.getCode());
+        assertEquals(1, LOG_MAPPER.logs.size());
+    }
+
+    @Test
+    void addingMemberRollsBackWhenOperationLogCannotBeWritten()
+    {
+        Project project = SERVICE.createProject("Member add transaction project", 21L);
+        insertUser(22L, "bob", "Bob", "bob@example.com", "0", "0");
+        MEMBER_MAPPER.roles.put(7L, "项目成员");
+        LOG_MAPPER.failNextInsert.set(true);
+
+        assertThrows(IllegalStateException.class,
+            () -> SERVICE.addProjectMember(project.getProjectId(), 21L, 22L, 7L));
+
+        assertNull(MEMBER_MAPPER.selectProjectMember(project.getProjectId(), 22L));
+        assertEquals(0, LOG_MAPPER.logs.size());
+    }
+
+    @Test
+    void projectAdminCanAddMemberToArchivedProject()
+    {
+        Project project = SERVICE.createProject("Archived member add project", 21L);
+        insertUser(22L, "bob", "Bob", "bob@example.com", "0", "0");
+        MEMBER_MAPPER.roles.put(7L, "项目成员");
+        SERVICE.updateProjectStatus(project.getProjectId(), 21L, true);
+
+        ProjectMember added = SERVICE.addProjectMember(project.getProjectId(), 21L, 22L, 7L);
+
+        assertEquals(22L, added.getUserId());
+        assertEquals(Project.STATUS_ARCHIVED,
+            SERVICE.selectProjectForUser(project.getProjectId(), 21L).getStatus());
     }
 
     @Test
@@ -452,6 +554,12 @@ class ProjectServiceImplTest
         return member;
     }
 
+    private void insertUser(Long userId, String userName, String nickName, String email, String status, String delFlag)
+    {
+        JDBC.update("insert into sys_user (user_id, user_name, nick_name, email, status, del_flag) "
+            + "values (?, ?, ?, ?, ?, ?)", userId, userName, nickName, email, status, delFlag);
+    }
+
     private int count(String table)
     {
         return JDBC.queryForObject("select count(*) from " + table, Integer.class);
@@ -520,6 +628,9 @@ class ProjectServiceImplTest
                 + "project_id bigint not null, user_id bigint not null, role_id bigint null, is_project_admin integer not null, "
                 + "create_time timestamp not null, update_time timestamp not null, "
                 + "primary key (project_id, user_id))");
+            jdbcTemplate.execute("create table sys_user ("
+                + "user_id bigint primary key, user_name varchar(30), nick_name varchar(30), email varchar(50), "
+                + "status varchar(1) not null default '0', del_flag varchar(1) not null default '0')");
             return new Object();
         }
     }
@@ -667,6 +778,23 @@ class ProjectServiceImplTest
                     return member;
                 }, projectId, userId);
             return members.isEmpty() ? null : members.get(0);
+        }
+
+        @Override
+        public ProjectMember selectActiveProjectMemberUser(Long userId)
+        {
+            List<ProjectMember> users = jdbc.query(
+                "select user_id, user_name, nick_name, email from sys_user "
+                    + "where user_id = ? and status = '0' and del_flag = '0'",
+                (resultSet, rowNum) -> {
+                    ProjectMember user = new ProjectMember();
+                    user.setUserId(resultSet.getLong("user_id"));
+                    user.setUserName(resultSet.getString("user_name"));
+                    user.setNickName(resultSet.getString("nick_name"));
+                    user.setEmail(resultSet.getString("email"));
+                    return user;
+                }, userId);
+            return users.isEmpty() ? null : users.get(0);
         }
 
         @Override
