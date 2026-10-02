@@ -30,6 +30,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <if test="projectName != null and projectName != ''">
             and p.project_name like concat('%', #{projectName}, '%')
         </if>
+        order by p.create_time desc, p.project_id desc
     </select>
 
     <select id="selectProjectForUser" resultMap="ProjectResult">

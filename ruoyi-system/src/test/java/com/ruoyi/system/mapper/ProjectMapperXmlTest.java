@@ -64,11 +64,14 @@ class ProjectMapperXmlTest
             Project first = insertProject(projectMapper, "Alpha project", "alpha project", 21L, now);
             Project second = insertProject(projectMapper, "Beta project", "beta project", 22L, now);
             memberMapper.insertProjectMember(member(first, 21L, now));
+            memberMapper.insertProjectMember(member(second, 21L, now));
             memberMapper.insertProjectMember(member(second, 22L, now));
             session.commit();
 
             assertEquals(List.of(first.getProjectId()), projectMapper.selectProjectListForUser(21L, "Alpha")
                 .stream().map(Project::getProjectId).toList());
+            assertEquals(List.of(second.getProjectId(), first.getProjectId()),
+                projectMapper.selectProjectListForUser(21L, null).stream().map(Project::getProjectId).toList());
             assertEquals(0, projectMapper.selectProjectListForUser(1L, null).size());
             assertNull(projectMapper.selectProjectForUser(first.getProjectId(), 22L));
             assertNull(projectMapper.selectProjectForUser(first.getProjectId(), 1L));
