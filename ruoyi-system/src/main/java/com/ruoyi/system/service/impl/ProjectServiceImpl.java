@@ -85,6 +85,61 @@ public class ProjectServiceImpl implements IProjectService
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Project updateProjectName(Long projectId, Long operatorId, String projectName)
+    {
+        if (projectId == null || projectMapper.lockProjectForUpdate(projectId) == null)
+        {
+            throw new ServiceException("项目不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        requireProjectAdmin(projectId, operatorId);
+        String normalizedName = projectName == null ? "" : projectName.trim();
+        if (normalizedName.isEmpty())
+        {
+            throw new ServiceException("项目名称不能为空", HttpStatus.BAD_REQUEST);
+        }
+        if (normalizedName.length() > 255)
+        {
+            throw new ServiceException("项目名称长度不能超过255个字符", HttpStatus.BAD_REQUEST);
+        }
+        Project project = projectMapper.selectProjectForUser(projectId, operatorId);
+        if (project == null)
+        {
+            throw new ServiceException("项目不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        String projectNameKey = normalizedName.toLowerCase(Locale.ROOT);
+        if (projectNameKey.equals(project.getProjectNameKey()))
+        {
+            return project;
+        }
+        try
+        {
+            if (projectMapper.updateProjectName(projectId, normalizedName, projectNameKey) != 1)
+            {
+                throw new ServiceException("修改项目名称失败");
+            }
+        }
+        catch (DuplicateKeyException e)
+        {
+            throw new ServiceException("项目名称已存在", HttpStatus.CONFLICT);
+        }
+        ProjectOperationLog log = new ProjectOperationLog();
+        log.setProjectId(projectId);
+        log.setOperatorId(operatorId);
+        log.setOperationType("PROJECT_NAME_UPDATE");
+        log.setDetail("项目名称由“" + project.getProjectName() + "”修改为“" + normalizedName + "”");
+        log.setCreateTime(new Date());
+        if (projectOperationLogMapper.insertProjectOperationLog(log) != 1)
+        {
+            throw new ServiceException("记录项目操作日志失败");
+        }
+        project.setProjectName(normalizedName);
+        project.setProjectNameKey(projectNameKey);
+        project.setUpdateTime(new Date());
+        return project;
+    }
+
+    @Override
     public List<Project> selectProjectsForUser(Long userId, String projectName)
     {
         String keyword = projectName == null ? null : projectName.trim();
@@ -161,7 +216,7 @@ public class ProjectServiceImpl implements IProjectService
     public ProjectMember updateProjectMemberAdmin(Long projectId, Long operatorId, Long memberUserId,
         Boolean projectAdmin)
     {
-        if (projectId == null || projectMapper.lockProjectForMemberAdminUpdate(projectId) == null)
+        if (projectId == null || projectMapper.lockProjectForUpdate(projectId) == null)
         {
             throw new ServiceException("项目不存在或无权访问", HttpStatus.NOT_FOUND);
         }

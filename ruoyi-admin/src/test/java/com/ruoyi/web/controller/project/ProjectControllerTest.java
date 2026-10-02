@@ -38,6 +38,7 @@ import com.ruoyi.system.service.IProjectService;
 import com.ruoyi.web.domain.project.ProjectCreateRequest;
 import com.ruoyi.web.domain.project.ProjectMemberRoleRequest;
 import com.ruoyi.web.domain.project.ProjectMemberAdminRequest;
+import com.ruoyi.web.domain.project.ProjectNameUpdateRequest;
 import com.ruoyi.web.domain.project.ProjectMemberView;
 
 class ProjectControllerTest
@@ -189,6 +190,25 @@ class ProjectControllerTest
         assertEquals(200, response.getStatusCode().value());
         verify(projectService).updateProjectMemberAdmin(41L, 23L, 24L, true);
         assertEquals(1, ((ProjectMemberView) response.getBody().get("data")).getIsProjectAdmin());
+    }
+
+    @Test
+    void projectAdminCanUpdateProjectName()
+    {
+        setCurrentUser(23L);
+        Project project = new Project();
+        project.setProjectId(41L);
+        project.setProjectName("Renamed project");
+        when(projectService.updateProjectName(41L, 23L, "Renamed project")).thenReturn(project);
+        ProjectNameUpdateRequest request = new ProjectNameUpdateRequest();
+        request.setProjectName("Renamed project");
+
+        ResponseEntity<AjaxResult> response = controller.update("41", request);
+
+        assertEquals(200, response.getStatusCode().value());
+        verify(projectService).updateProjectName(41L, 23L, "Renamed project");
+        assertEquals("Renamed project", ((com.ruoyi.web.domain.project.ProjectView) response.getBody().get("data"))
+            .getProjectName());
     }
 
     @Test

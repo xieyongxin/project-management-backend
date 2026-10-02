@@ -27,6 +27,7 @@ import com.ruoyi.web.domain.project.ProjectView;
 import com.ruoyi.web.domain.project.ProjectMemberView;
 import com.ruoyi.web.domain.project.ProjectMemberRoleRequest;
 import com.ruoyi.web.domain.project.ProjectMemberAdminRequest;
+import com.ruoyi.web.domain.project.ProjectNameUpdateRequest;
 import com.ruoyi.web.domain.project.ProjectRoleOptionView;
 
 @RestController
@@ -56,6 +57,26 @@ public class ProjectController extends BaseController
     {
         Project project = projectService.createProject(request.getProjectName(), getUserId());
         return success(ProjectView.from(project));
+    }
+
+    @PutMapping("/{projectId}")
+    public ResponseEntity<AjaxResult> update(@PathVariable String projectId,
+        @Validated @RequestBody ProjectNameUpdateRequest request)
+    {
+        Long parsedProjectId = parseProjectId(projectId);
+        if (parsedProjectId == null)
+        {
+            return notFound();
+        }
+        try
+        {
+            Project project = projectService.updateProjectName(parsedProjectId, getUserId(), request.getProjectName());
+            return ResponseEntity.ok(success(ProjectView.from(project)));
+        }
+        catch (ServiceException e)
+        {
+            return serviceError(e);
+        }
     }
 
     @GetMapping("/{projectId}")

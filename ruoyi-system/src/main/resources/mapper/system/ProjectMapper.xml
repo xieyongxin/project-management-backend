@@ -40,10 +40,18 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
           and m.user_id = #{userId}
     </select>
 
-    <select id="lockProjectForMemberAdminUpdate" resultType="long">
+    <select id="lockProjectForUpdate" resultType="long">
         select project_id
         from pm_project
         where project_id = #{projectId}
         for update
     </select>
+
+    <update id="updateProjectName">
+        update pm_project
+        set project_name = #{projectName},
+            project_name_key = #{projectNameKey},
+            update_time = CURRENT_TIMESTAMP
+        where project_id = #{projectId}
+    </update>
 </mapper>

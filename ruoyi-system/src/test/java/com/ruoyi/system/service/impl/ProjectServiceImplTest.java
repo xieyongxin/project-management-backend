@@ -111,6 +111,64 @@ class ProjectServiceImplTest
     }
 
     @Test
+    void projectAdminCanRenameProjectAndOperationIsLogged()
+    {
+        Project project = SERVICE.createProject("Original project", 21L);
+
+        Project updated = SERVICE.updateProjectName(project.getProjectId(), 21L, "  Renamed project  ");
+
+        assertEquals("Renamed project", updated.getProjectName());
+        assertEquals("renamed project", updated.getProjectNameKey());
+        assertEquals("Renamed project", SERVICE.selectProjectForUser(project.getProjectId(), 21L).getProjectName());
+        assertEquals("PROJECT_NAME_UPDATE", LOG_MAPPER.last.getOperationType());
+        assertEquals("项目名称由“Original project”修改为“Renamed project”", LOG_MAPPER.last.getDetail());
+    }
+
+    @Test
+    void projectRenameRejectsDuplicateAndPreservesOriginalName()
+    {
+        Project first = SERVICE.createProject("First project", 21L);
+        SERVICE.createProject("Second project", 22L);
+
+        ServiceException error = assertThrows(ServiceException.class,
+            () -> SERVICE.updateProjectName(first.getProjectId(), 21L, " second project "));
+
+        assertEquals(HttpStatus.CONFLICT, error.getCode());
+        assertEquals("First project", SERVICE.selectProjectForUser(first.getProjectId(), 21L).getProjectName());
+        assertEquals(0, LOG_MAPPER.logs.size());
+    }
+
+    @Test
+    void projectRenameRequiresAdminAndValidName()
+    {
+        Project project = SERVICE.createProject("Rename boundary project", 21L);
+        addMember(project, 22L, 7L, 0);
+
+        ServiceException nonAdmin = assertThrows(ServiceException.class,
+            () -> SERVICE.updateProjectName(project.getProjectId(), 22L, "New name"));
+        ServiceException blank = assertThrows(ServiceException.class,
+            () -> SERVICE.updateProjectName(project.getProjectId(), 21L, "  "));
+
+        assertEquals(HttpStatus.FORBIDDEN, nonAdmin.getCode());
+        assertEquals(HttpStatus.BAD_REQUEST, blank.getCode());
+        assertEquals(0, LOG_MAPPER.logs.size());
+    }
+
+    @Test
+    void projectRenameRollsBackWhenOperationLogCannotBeWritten()
+    {
+        Project project = SERVICE.createProject("Rename transaction project", 21L);
+        LOG_MAPPER.failNextInsert.set(true);
+
+        assertThrows(IllegalStateException.class,
+            () -> SERVICE.updateProjectName(project.getProjectId(), 21L, "Updated name"));
+
+        assertEquals("Rename transaction project", SERVICE.selectProjectForUser(project.getProjectId(), 21L)
+            .getProjectName());
+        assertEquals(0, LOG_MAPPER.logs.size());
+    }
+
+    @Test
     void memberInsertFailureRollsBackProjectInsert()
     {
         MEMBER_MAPPER.failNextInsert.set(true);
@@ -402,10 +460,17 @@ class ProjectServiceImplTest
         }
 
         @Override
-        public Long lockProjectForMemberAdminUpdate(Long projectId)
+        public Long lockProjectForUpdate(Long projectId)
         {
             return jdbc.query("select project_id from pm_project where project_id = ?",
                 resultSet -> resultSet.next() ? resultSet.getLong(1) : null, projectId);
+        }
+
+        @Override
+        public int updateProjectName(Long projectId, String projectName, String projectNameKey)
+        {
+            return jdbc.update("update pm_project set project_name = ?, project_name_key = ?, update_time = CURRENT_TIMESTAMP "
+                + "where project_id = ?", projectName, projectNameKey, projectId);
         }
 
         private RowMapper<Project> projectRowMapper()

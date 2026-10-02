@@ -9,6 +9,8 @@ public interface IProjectService
 {
     Project createProject(String projectName, Long creatorId);
 
+    Project updateProjectName(Long projectId, Long operatorId, String projectName);
+
     List<Project> selectProjectsForUser(Long userId, String projectName);
 
     Project selectProjectForUser(Long projectId, Long userId);
