@@ -56,6 +56,7 @@ public class ProjectServiceImpl implements IProjectService
         project.setProjectName(normalizedName);
         project.setProjectNameKey(normalizedName.toLowerCase(Locale.ROOT));
         project.setCreatorId(creatorId);
+        project.setStatus(Project.STATUS_ACTIVE);
         project.setCreateTime(now);
         project.setUpdateTime(now);
 
@@ -107,6 +108,10 @@ public class ProjectServiceImpl implements IProjectService
         {
             throw new ServiceException("项目不存在或无权访问", HttpStatus.NOT_FOUND);
         }
+        if (Project.STATUS_ARCHIVED.equals(project.getStatus()))
+        {
+            throw new ServiceException("归档项目不能开展新的业务操作", HttpStatus.BAD_REQUEST);
+        }
         String projectNameKey = normalizedName.toLowerCase(Locale.ROOT);
         if (projectNameKey.equals(project.getProjectNameKey()))
         {
@@ -135,6 +140,38 @@ public class ProjectServiceImpl implements IProjectService
         }
         project.setProjectName(normalizedName);
         project.setProjectNameKey(projectNameKey);
+        project.setUpdateTime(new Date());
+        return project;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Project updateProjectStatus(Long projectId, Long operatorId, Boolean archived)
+    {
+        if (projectId == null || projectMapper.lockProjectForUpdate(projectId) == null)
+        {
+            throw new ServiceException("项目不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        requireProjectAdmin(projectId, operatorId);
+        if (archived == null)
+        {
+            throw new ServiceException("项目状态不能为空", HttpStatus.BAD_REQUEST);
+        }
+        Project project = projectMapper.selectProjectForUser(projectId, operatorId);
+        if (project == null)
+        {
+            throw new ServiceException("项目不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        String desiredStatus = archived ? Project.STATUS_ARCHIVED : Project.STATUS_ACTIVE;
+        if (desiredStatus.equals(project.getStatus()))
+        {
+            return project;
+        }
+        if (projectMapper.updateProjectStatus(projectId, desiredStatus) != 1)
+        {
+            throw new ServiceException("更新项目状态失败");
+        }
+        project.setStatus(desiredStatus);
         project.setUpdateTime(new Date());
         return project;
     }
@@ -296,7 +333,7 @@ public class ProjectServiceImpl implements IProjectService
         }
         if (!Integer.valueOf(1).equals(operator.getIsProjectAdmin()))
         {
-            throw new ServiceException("只有项目管理员可以调整成员角色", HttpStatus.FORBIDDEN);
+            throw new ServiceException("只有项目管理员可以管理项目", HttpStatus.FORBIDDEN);
         }
         return operator;
     }

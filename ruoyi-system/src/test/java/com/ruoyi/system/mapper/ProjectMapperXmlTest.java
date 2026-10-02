@@ -41,7 +41,7 @@ class ProjectMapperXmlTest
         jdbc.execute("create table pm_project ("
             + "project_id bigint auto_increment primary key, project_name varchar(255) not null, "
             + "project_name_key varchar(255) not null unique, creator_id bigint not null, "
-            + "create_time timestamp not null, update_time timestamp not null)");
+            + "status varchar(16) not null default 'ACTIVE', create_time timestamp not null, update_time timestamp not null)");
         jdbc.execute("create table pm_project_member ("
             + "project_id bigint not null, user_id bigint not null, role_id bigint null, is_project_admin integer not null, "
             + "create_time timestamp not null, update_time timestamp not null, primary key(project_id, user_id))");
@@ -95,6 +95,7 @@ class ProjectMapperXmlTest
             assertNull(projectMapper.selectProjectForUser(first.getProjectId(), 1L));
             assertEquals(first.getProjectId(), projectMapper.selectProjectForUser(first.getProjectId(), 21L)
                 .getProjectId());
+            assertEquals(Project.STATUS_ACTIVE, projectMapper.selectProjectForUser(first.getProjectId(), 21L).getStatus());
             List<ProjectMember> members = memberMapper.selectProjectMembersForUser(second.getProjectId(), 21L);
             assertEquals(2, members.size());
             assertEquals("bob", members.get(1).getUserName());
@@ -109,6 +110,10 @@ class ProjectMapperXmlTest
             assertEquals(1, memberMapper.updateProjectMemberAdmin(second.getProjectId(), 22L, 1));
             assertEquals(1, projectMapper.updateProjectName(second.getProjectId(), "Renamed project", "renamed project"));
             assertEquals("Renamed project", projectMapper.selectProjectForUser(second.getProjectId(), 21L).getProjectName());
+            assertEquals(1, projectMapper.updateProjectStatus(second.getProjectId(), Project.STATUS_ARCHIVED));
+            assertEquals(Project.STATUS_ARCHIVED, projectMapper.selectProjectForUser(second.getProjectId(), 21L).getStatus());
+            assertEquals(1, projectMapper.updateProjectStatus(second.getProjectId(), Project.STATUS_ACTIVE));
+            assertEquals(Project.STATUS_ACTIVE, projectMapper.selectProjectForUser(second.getProjectId(), 21L).getStatus());
 
             ProjectOperationLog log = new ProjectOperationLog();
             log.setProjectId(second.getProjectId());

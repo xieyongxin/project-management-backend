@@ -9,12 +9,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="projectName" column="project_name" />
         <result property="projectNameKey" column="project_name_key" />
         <result property="creatorId" column="creator_id" />
+        <result property="status" column="status" />
         <result property="createTime" column="create_time" />
         <result property="updateTime" column="update_time" />
     </resultMap>
 
     <sql id="selectProjectColumns">
-        select p.project_id, p.project_name, p.project_name_key, p.creator_id, p.create_time, p.update_time
+        select p.project_id, p.project_name, p.project_name_key, p.creator_id, p.status, p.create_time, p.update_time
         from pm_project p
     </sql>
 
@@ -51,6 +52,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         update pm_project
         set project_name = #{projectName},
             project_name_key = #{projectNameKey},
+            update_time = CURRENT_TIMESTAMP
+        where project_id = #{projectId}
+    </update>
+
+    <update id="updateProjectStatus">
+        update pm_project
+        set status = #{status},
             update_time = CURRENT_TIMESTAMP
         where project_id = #{projectId}
     </update>

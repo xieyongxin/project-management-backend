@@ -31,6 +31,7 @@ import com.ruoyi.web.domain.project.ProjectMemberAdminRequest;
 import com.ruoyi.web.domain.project.ProjectNameUpdateRequest;
 import com.ruoyi.web.domain.project.ProjectRoleOptionView;
 import com.ruoyi.web.domain.project.ProjectOperationLogView;
+import com.ruoyi.web.domain.project.ProjectArchiveRequest;
 
 @RestController
 @RequestMapping("/project")
@@ -73,6 +74,26 @@ public class ProjectController extends BaseController
         try
         {
             Project project = projectService.updateProjectName(parsedProjectId, getUserId(), request.getProjectName());
+            return ResponseEntity.ok(success(ProjectView.from(project)));
+        }
+        catch (ServiceException e)
+        {
+            return serviceError(e);
+        }
+    }
+
+    @PutMapping("/{projectId}/status")
+    public ResponseEntity<AjaxResult> updateStatus(@PathVariable String projectId,
+        @Validated @RequestBody ProjectArchiveRequest request)
+    {
+        Long parsedProjectId = parseProjectId(projectId);
+        if (parsedProjectId == null)
+        {
+            return notFound();
+        }
+        try
+        {
+            Project project = projectService.updateProjectStatus(parsedProjectId, getUserId(), request.getArchived());
             return ResponseEntity.ok(success(ProjectView.from(project)));
         }
         catch (ServiceException e)

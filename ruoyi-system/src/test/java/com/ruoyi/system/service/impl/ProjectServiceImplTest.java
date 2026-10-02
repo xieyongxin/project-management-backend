@@ -169,6 +169,44 @@ class ProjectServiceImplTest
     }
 
     @Test
+    void projectAdminCanArchiveAndReenableProject()
+    {
+        Project project = SERVICE.createProject("Archive project", 21L);
+
+        Project archived = SERVICE.updateProjectStatus(project.getProjectId(), 21L, true);
+
+        assertEquals(Project.STATUS_ARCHIVED, archived.getStatus());
+        assertEquals(Project.STATUS_ARCHIVED,
+            SERVICE.selectProjectForUser(project.getProjectId(), 21L).getStatus());
+        ServiceException renameError = assertThrows(ServiceException.class,
+            () -> SERVICE.updateProjectName(project.getProjectId(), 21L, "Renamed while archived"));
+        assertEquals(HttpStatus.BAD_REQUEST, renameError.getCode());
+
+        Project enabled = SERVICE.updateProjectStatus(project.getProjectId(), 21L, false);
+
+        assertEquals(Project.STATUS_ACTIVE, enabled.getStatus());
+        assertEquals(Project.STATUS_ACTIVE,
+            SERVICE.selectProjectForUser(project.getProjectId(), 21L).getStatus());
+    }
+
+    @Test
+    void projectStatusUpdateRequiresAdministratorAndMembership()
+    {
+        Project project = SERVICE.createProject("Archive permission project", 21L);
+        addMember(project, 22L, 7L, 0);
+
+        ServiceException nonAdmin = assertThrows(ServiceException.class,
+            () -> SERVICE.updateProjectStatus(project.getProjectId(), 22L, true));
+        ServiceException nonMember = assertThrows(ServiceException.class,
+            () -> SERVICE.updateProjectStatus(project.getProjectId(), 1L, true));
+
+        assertEquals(HttpStatus.FORBIDDEN, nonAdmin.getCode());
+        assertEquals(HttpStatus.NOT_FOUND, nonMember.getCode());
+        assertEquals(Project.STATUS_ACTIVE,
+            SERVICE.selectProjectForUser(project.getProjectId(), 21L).getStatus());
+    }
+
+    @Test
     void memberInsertFailureRollsBackProjectInsert()
     {
         MEMBER_MAPPER.failNextInsert.set(true);
@@ -414,7 +452,8 @@ class ProjectServiceImplTest
                 + "project_id bigint auto_increment primary key, "
                 + "project_name varchar(255) not null, "
                 + "project_name_key varchar(255) not null unique, "
-                + "creator_id bigint not null, create_time timestamp not null, update_time timestamp not null)");
+                + "creator_id bigint not null, status varchar(16) not null default 'ACTIVE', "
+                + "create_time timestamp not null, update_time timestamp not null)");
             jdbcTemplate.execute("create table pm_project_member ("
                 + "project_id bigint not null, user_id bigint not null, role_id bigint null, is_project_admin integer not null, "
                 + "create_time timestamp not null, update_time timestamp not null, "
@@ -487,6 +526,13 @@ class ProjectServiceImplTest
                 + "where project_id = ?", projectName, projectNameKey, projectId);
         }
 
+        @Override
+        public int updateProjectStatus(Long projectId, String status)
+        {
+            return jdbc.update("update pm_project set status = ?, update_time = CURRENT_TIMESTAMP where project_id = ?",
+                status, projectId);
+        }
+
         private RowMapper<Project> projectRowMapper()
         {
             return (resultSet, rowNum) -> {
@@ -495,6 +541,7 @@ class ProjectServiceImplTest
                 project.setProjectName(resultSet.getString("project_name"));
                 project.setProjectNameKey(resultSet.getString("project_name_key"));
                 project.setCreatorId(resultSet.getLong("creator_id"));
+                project.setStatus(resultSet.getString("status"));
                 project.setCreateTime(resultSet.getTimestamp("create_time"));
                 project.setUpdateTime(resultSet.getTimestamp("update_time"));
                 return project;

@@ -8,6 +8,7 @@ public class ProjectView
     private Long projectId;
     private String projectName;
     private Long creatorId;
+    private String status;
     private Date createTime;
     private Date updateTime;
 
@@ -17,6 +18,7 @@ public class ProjectView
         view.setProjectId(project.getProjectId());
         view.setProjectName(project.getProjectName());
         view.setCreatorId(project.getCreatorId());
+        view.setStatus(project.getStatus());
         view.setCreateTime(project.getCreateTime());
         view.setUpdateTime(project.getUpdateTime());
         return view;
@@ -50,6 +52,16 @@ public class ProjectView
     public void setCreatorId(Long creatorId)
     {
         this.creatorId = creatorId;
+    }
+
+    public String getStatus()
+    {
+        return status;
+    }
+
+    public void setStatus(String status)
+    {
+        this.status = status;
     }
 
     public Date getCreateTime()

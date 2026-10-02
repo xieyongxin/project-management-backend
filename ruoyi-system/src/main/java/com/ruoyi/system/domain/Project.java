@@ -4,10 +4,14 @@ import java.util.Date;
 
 public class Project
 {
+    public static final String STATUS_ACTIVE = "ACTIVE";
+    public static final String STATUS_ARCHIVED = "ARCHIVED";
+
     private Long projectId;
     private String projectName;
     private String projectNameKey;
     private Long creatorId;
+    private String status;
     private Date createTime;
     private Date updateTime;
 
@@ -49,6 +53,16 @@ public class Project
     public void setCreatorId(Long creatorId)
     {
         this.creatorId = creatorId;
+    }
+
+    public String getStatus()
+    {
+        return status;
+    }
+
+    public void setStatus(String status)
+    {
+        this.status = status;
     }
 
     public Date getCreateTime()

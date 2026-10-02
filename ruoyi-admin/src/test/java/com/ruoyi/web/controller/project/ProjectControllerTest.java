@@ -41,6 +41,7 @@ import com.ruoyi.web.domain.project.ProjectMemberRoleRequest;
 import com.ruoyi.web.domain.project.ProjectMemberAdminRequest;
 import com.ruoyi.web.domain.project.ProjectNameUpdateRequest;
 import com.ruoyi.web.domain.project.ProjectMemberView;
+import com.ruoyi.web.domain.project.ProjectArchiveRequest;
 
 class ProjectControllerTest
 {
@@ -210,6 +211,38 @@ class ProjectControllerTest
         verify(projectService).updateProjectName(41L, 23L, "Renamed project");
         assertEquals("Renamed project", ((com.ruoyi.web.domain.project.ProjectView) response.getBody().get("data"))
             .getProjectName());
+    }
+
+    @Test
+    void projectAdminCanUpdateProjectArchiveStatus()
+    {
+        setCurrentUser(23L);
+        Project project = new Project();
+        project.setProjectId(41L);
+        project.setStatus(Project.STATUS_ARCHIVED);
+        when(projectService.updateProjectStatus(41L, 23L, true)).thenReturn(project);
+        ProjectArchiveRequest request = new ProjectArchiveRequest();
+        request.setArchived(true);
+
+        ResponseEntity<AjaxResult> response = controller.updateStatus("41", request);
+
+        assertEquals(200, response.getStatusCode().value());
+        verify(projectService).updateProjectStatus(41L, 23L, true);
+        assertEquals(Project.STATUS_ARCHIVED,
+            ((com.ruoyi.web.domain.project.ProjectView) response.getBody().get("data")).getStatus());
+    }
+
+    @Test
+    void malformedProjectArchiveStatusIdUsesHttp404WithoutQueryingService()
+    {
+        setCurrentUser(23L);
+        ProjectArchiveRequest request = new ProjectArchiveRequest();
+        request.setArchived(true);
+
+        ResponseEntity<AjaxResult> response = controller.updateStatus("not-a-number", request);
+
+        assertEquals(404, response.getStatusCode().value());
+        verifyNoInteractions(projectService);
     }
 
     @Test

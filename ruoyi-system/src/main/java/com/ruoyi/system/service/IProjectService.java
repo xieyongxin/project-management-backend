@@ -12,6 +12,8 @@ public interface IProjectService
 
     Project updateProjectName(Long projectId, Long operatorId, String projectName);
 
+    Project updateProjectStatus(Long projectId, Long operatorId, Boolean archived);
+
     List<Project> selectProjectsForUser(Long userId, String projectName);
 
     Project selectProjectForUser(Long projectId, Long userId);

@@ -16,4 +16,6 @@ public interface ProjectMapper
 
     int updateProjectName(@Param("projectId") Long projectId, @Param("projectName") String projectName,
         @Param("projectNameKey") String projectNameKey);
+
+    int updateProjectStatus(@Param("projectId") Long projectId, @Param("status") String status);
 }
