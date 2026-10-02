@@ -20,6 +20,7 @@ import com.ruoyi.system.domain.Requirement;
 import com.ruoyi.system.service.IRequirementService;
 import com.ruoyi.web.domain.project.RequirementCreateRequest;
 import com.ruoyi.web.domain.project.RequirementView;
+import com.ruoyi.web.domain.project.RequirementVersionView;
 
 @RestController
 @RequestMapping("/project/{projectId}/requirements")
@@ -50,6 +51,44 @@ public class RequirementController extends BaseController
         TableDataInfo result = getDataTable(requirements);
         result.setRows(requirements.stream().map(RequirementView::from).toList());
         return ResponseEntity.ok(result);
+    }
+
+    @PreAuthorize("@ss.hasPermi('project:requirement:list')")
+    @GetMapping("/{requirementId}")
+    public ResponseEntity<?> detail(@PathVariable String projectId, @PathVariable String requirementId)
+    {
+        Long parsedProjectId = parseId(projectId);
+        Long parsedRequirementId = parseId(requirementId);
+        if (parsedProjectId == null || parsedRequirementId == null)
+        {
+            return notFound();
+        }
+        Requirement requirement = requirementService.selectRequirementForUser(parsedProjectId,
+            parsedRequirementId, getUserId());
+        if (requirement == null)
+        {
+            return notFound();
+        }
+        return ResponseEntity.ok(success(RequirementView.from(requirement)));
+    }
+
+    @PreAuthorize("@ss.hasPermi('project:requirement:list')")
+    @GetMapping("/{requirementId}/versions")
+    public ResponseEntity<?> versions(@PathVariable String projectId, @PathVariable String requirementId)
+    {
+        Long parsedProjectId = parseId(projectId);
+        Long parsedRequirementId = parseId(requirementId);
+        if (parsedProjectId == null || parsedRequirementId == null)
+        {
+            return notFound();
+        }
+        List<com.ruoyi.system.domain.RequirementVersion> versions = requirementService
+            .selectRequirementVersionsForUser(parsedProjectId, parsedRequirementId, getUserId());
+        if (versions == null)
+        {
+            return notFound();
+        }
+        return ResponseEntity.ok(success(versions.stream().map(RequirementVersionView::from).toList()));
     }
 
     @PreAuthorize("@ss.hasPermi('project:requirement:add')")

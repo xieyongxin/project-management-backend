@@ -8,6 +8,7 @@ public class RequirementView
     private Long requirementId;
     private Long projectId;
     private Long creatorId;
+    private Long currentVersionId;
     private Integer currentVersionNo;
     private String title;
     private String content;
@@ -23,6 +24,7 @@ public class RequirementView
         view.setRequirementId(requirement.getRequirementId());
         view.setProjectId(requirement.getProjectId());
         view.setCreatorId(requirement.getCreatorId());
+        view.setCurrentVersionId(requirement.getCurrentVersionId());
         view.setCurrentVersionNo(requirement.getCurrentVersionNo());
         view.setTitle(requirement.getTitle());
         view.setContent(requirement.getContent());
@@ -41,6 +43,8 @@ public class RequirementView
     public void setProjectId(Long projectId) { this.projectId = projectId; }
     public Long getCreatorId() { return creatorId; }
     public void setCreatorId(Long creatorId) { this.creatorId = creatorId; }
+    public Long getCurrentVersionId() { return currentVersionId; }
+    public void setCurrentVersionId(Long currentVersionId) { this.currentVersionId = currentVersionId; }
     public Integer getCurrentVersionNo() { return currentVersionNo; }
     public void setCurrentVersionNo(Integer currentVersionNo) { this.currentVersionNo = currentVersionNo; }
     public String getTitle() { return title; }

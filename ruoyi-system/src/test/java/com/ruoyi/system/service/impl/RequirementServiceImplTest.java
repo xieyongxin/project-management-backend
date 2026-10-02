@@ -101,6 +101,33 @@ class RequirementServiceImplTest
     }
 
     @Test
+    void memberCanReadRequirementDetailAndVersionHistoryWithProjectIsolation()
+    {
+        Requirement requirement = SERVICE.createRequirement(41L, 21L, "登录需求", "正文 1",
+            "todo", List.of(21L));
+        RequirementVersion second = new RequirementVersion();
+        second.setRequirementId(requirement.getRequirementId());
+        second.setVersionNo(2);
+        second.setTitle("登录需求 2");
+        second.setContent("正文 2");
+        second.setAttachmentSnapshot("[]");
+        second.setCreatedBy(21L);
+        second.setCreateTime(new Date());
+        assertEquals(1, REQUIREMENT_MAPPER.insertRequirementVersion(second));
+
+        Requirement selected = SERVICE.selectRequirementForUser(41L, requirement.getRequirementId(), 21L);
+        List<RequirementVersion> versions = SERVICE.selectRequirementVersionsForUser(41L,
+            requirement.getRequirementId(), 21L);
+
+        assertEquals("登录需求", selected.getTitle());
+        assertEquals(2, versions.size());
+        assertEquals(List.of(1, 2), versions.stream().map(RequirementVersion::getVersionNo).toList());
+        assertNull(SERVICE.selectRequirementForUser(41L, requirement.getRequirementId(), 22L));
+        assertNull(SERVICE.selectRequirementVersionsForUser(41L, requirement.getRequirementId(), 22L));
+        assertNull(SERVICE.selectRequirementVersionsForUser(41L, 999L, 21L));
+    }
+
+    @Test
     void requirementCreationValidatesMembershipStatusAndArchive()
     {
         ServiceException nonMember = assertThrows(ServiceException.class,
@@ -343,6 +370,30 @@ class RequirementServiceImplTest
             Requirement result = requirements.get(0);
             result.setOwners(selectRequirementOwners(requirementId));
             return result;
+        }
+
+        @Override
+        public List<RequirementVersion> selectRequirementVersionsForUser(Long projectId, Long requirementId,
+            Long userId)
+        {
+            return jdbc.query("select v.version_id, v.requirement_id, v.version_no, v.title, v.content, "
+                + "v.attachment_snapshot, v.created_by, v.create_time "
+                + "from pm_requirement_version v inner join pm_requirement r "
+                + "on r.requirement_id = v.requirement_id "
+                + "inner join pm_project_member m on m.project_id = r.project_id and m.user_id = ? "
+                + "where r.project_id = ? and r.requirement_id = ? and r.is_deleted = 0 "
+                + "order by v.version_no asc, v.version_id asc", (rs, rowNum) -> {
+                    RequirementVersion version = new RequirementVersion();
+                    version.setVersionId(rs.getLong("version_id"));
+                    version.setRequirementId(rs.getLong("requirement_id"));
+                    version.setVersionNo(rs.getInt("version_no"));
+                    version.setTitle(rs.getString("title"));
+                    version.setContent(rs.getString("content"));
+                    version.setAttachmentSnapshot(rs.getString("attachment_snapshot"));
+                    version.setCreatedBy(rs.getLong("created_by"));
+                    version.setCreateTime(rs.getTimestamp("create_time"));
+                    return version;
+                }, userId, projectId, requirementId);
         }
 
         @Override

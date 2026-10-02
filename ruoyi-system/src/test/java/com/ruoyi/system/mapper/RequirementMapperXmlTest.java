@@ -101,6 +101,15 @@ class RequirementMapperXmlTest
             version.setCreateTime(now);
             assertEquals(1, mapper.insertRequirementVersion(version));
             assertEquals(1, mapper.updateCurrentVersion(requirement.getRequirementId(), version.getVersionId()));
+            RequirementVersion second = new RequirementVersion();
+            second.setRequirementId(requirement.getRequirementId());
+            second.setVersionNo(2);
+            second.setTitle("登录 2");
+            second.setContent("正文 2");
+            second.setAttachmentSnapshot("[]");
+            second.setCreatedBy(21L);
+            second.setCreateTime(now);
+            assertEquals(1, mapper.insertRequirementVersion(second));
             assertEquals(1, mapper.insertRequirementOwner(requirement.getRequirementId(), 21L));
             assertEquals(1, mapper.insertRequirementOwner(requirement.getRequirementId(), 23L));
             session.commit();
@@ -108,6 +117,9 @@ class RequirementMapperXmlTest
             Requirement selected = mapper.selectRequirementForUser(41L, requirement.getRequirementId(), 21L);
             assertEquals("登录", selected.getTitle());
             assertEquals(1, selected.getCurrentVersionNo());
+            assertEquals(List.of(1, 2), mapper.selectRequirementVersionsForUser(41L,
+                requirement.getRequirementId(), 21L).stream().map(RequirementVersion::getVersionNo).toList());
+            assertEquals(0, mapper.selectRequirementVersionsForUser(41L, requirement.getRequirementId(), 99L).size());
             assertEquals(2, mapper.selectRequirementOwners(requirement.getRequirementId()).size());
             assertEquals(2, mapper.selectProjectMembersByIds(41L, List.of(21L, 23L)).size());
             assertEquals(1, mapper.selectRequirementsForUser(41L, 21L).size());

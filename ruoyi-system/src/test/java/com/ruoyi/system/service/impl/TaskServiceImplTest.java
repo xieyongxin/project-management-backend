@@ -37,6 +37,7 @@ import com.ruoyi.system.domain.Project;
 import com.ruoyi.system.domain.ProjectOperationLog;
 import com.ruoyi.system.domain.Requirement;
 import com.ruoyi.system.domain.RequirementOwner;
+import com.ruoyi.system.domain.RequirementVersion;
 import com.ruoyi.system.domain.Task;
 import com.ruoyi.system.domain.TaskCategory;
 import com.ruoyi.system.domain.TaskOwner;
@@ -284,6 +285,13 @@ class TaskServiceImplTest
                 return null;
             }
             return requirement;
+        }
+
+        @Override
+        public List<RequirementVersion> selectRequirementVersionsForUser(Long projectId, Long requirementId,
+            Long userId)
+        {
+            return List.of();
         }
 
         @Override

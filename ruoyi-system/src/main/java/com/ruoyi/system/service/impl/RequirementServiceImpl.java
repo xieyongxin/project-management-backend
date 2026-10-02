@@ -133,7 +133,7 @@ public class RequirementServiceImpl implements IRequirementService
         {
             throw new ServiceException("记录项目操作日志失败");
         }
-        return selectRequirementForUser(projectId, requirement.getRequirementId(), creatorId);
+        return selectRequirementForUserInternal(projectId, requirement.getRequirementId(), creatorId);
     }
 
     @Override
@@ -153,6 +153,28 @@ public class RequirementServiceImpl implements IRequirementService
     }
 
     @Override
+    public Requirement selectRequirementForUser(Long projectId, Long requirementId, Long userId)
+    {
+        return selectRequirementForUserInternal(projectId, requirementId, userId);
+    }
+
+    @Override
+    public List<RequirementVersion> selectRequirementVersionsForUser(Long projectId, Long requirementId,
+        Long userId)
+    {
+        if (projectId == null || requirementId == null || userId == null
+            || projectMapper.selectProjectForUser(projectId, userId) == null)
+        {
+            return null;
+        }
+        if (requirementMapper.selectRequirementForUser(projectId, requirementId, userId) == null)
+        {
+            return null;
+        }
+        return requirementMapper.selectRequirementVersionsForUser(projectId, requirementId, userId);
+    }
+
+    @Override
     public List<SysDictData> selectActiveStatuses(Long projectId, Long userId)
     {
         if (projectId == null || userId == null || projectMapper.selectProjectForUser(projectId, userId) == null)
@@ -162,7 +184,7 @@ public class RequirementServiceImpl implements IRequirementService
         return requirementMapper.selectActiveRequirementStatuses();
     }
 
-    private Requirement selectRequirementForUser(Long projectId, Long requirementId, Long userId)
+    private Requirement selectRequirementForUserInternal(Long projectId, Long requirementId, Long userId)
     {
         Requirement requirement = requirementMapper.selectRequirementForUser(projectId, requirementId, userId);
         if (requirement != null)

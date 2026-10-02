@@ -22,6 +22,9 @@ public interface RequirementMapper
     Requirement selectRequirementForUser(@Param("projectId") Long projectId,
         @Param("requirementId") Long requirementId, @Param("userId") Long userId);
 
+    List<RequirementVersion> selectRequirementVersionsForUser(@Param("projectId") Long projectId,
+        @Param("requirementId") Long requirementId, @Param("userId") Long userId);
+
     List<Requirement> selectRequirementsForUser(@Param("projectId") Long projectId,
         @Param("userId") Long userId);
 

@@ -31,6 +31,7 @@ import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.system.domain.Requirement;
 import com.ruoyi.system.domain.RequirementOwner;
+import com.ruoyi.system.domain.RequirementVersion;
 import com.ruoyi.system.service.IRequirementService;
 import com.ruoyi.web.domain.project.RequirementCreateRequest;
 import com.ruoyi.web.domain.project.RequirementView;
@@ -59,6 +60,15 @@ class RequirementControllerTest
         assertEquals("@ss.hasPermi('project:requirement:list')", list.value());
         assertNotNull(create);
         assertEquals("@ss.hasPermi('project:requirement:add')", create.value());
+
+        PreAuthorize detail = RequirementController.class.getMethod("detail", String.class, String.class)
+            .getAnnotation(PreAuthorize.class);
+        PreAuthorize versions = RequirementController.class.getMethod("versions", String.class, String.class)
+            .getAnnotation(PreAuthorize.class);
+        assertNotNull(detail);
+        assertEquals("@ss.hasPermi('project:requirement:list')", detail.value());
+        assertNotNull(versions);
+        assertEquals("@ss.hasPermi('project:requirement:list')", versions.value());
     }
 
     @Test
@@ -103,6 +113,50 @@ class RequirementControllerTest
 
         assertEquals(404, denied.getStatusCode().value());
         assertEquals(404, malformed.getStatusCode().value());
+    }
+
+    @Test
+    void memberCanReadRequirementDetailAndVersionsAndNonMemberGets404()
+    {
+        setCurrentUser(23L);
+        Requirement requirement = new Requirement();
+        requirement.setRequirementId(8L);
+        requirement.setCurrentVersionId(18L);
+        requirement.setTitle("登录");
+        RequirementVersion version = new RequirementVersion();
+        version.setVersionId(18L);
+        version.setRequirementId(8L);
+        version.setVersionNo(1);
+        version.setTitle("登录");
+        version.setContent("正文");
+        when(requirementService.selectRequirementForUser(41L, 8L, 23L)).thenReturn(requirement);
+        when(requirementService.selectRequirementVersionsForUser(41L, 8L, 23L)).thenReturn(List.of(version));
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(new MockHttpServletRequest()));
+
+        ResponseEntity<?> detail = controller.detail("41", "8");
+        ResponseEntity<?> versions = controller.versions("41", "8");
+
+        assertEquals(200, detail.getStatusCode().value());
+        assertEquals(8L, ((RequirementView) ((java.util.Map<?, ?>) detail.getBody()).get("data"))
+            .getRequirementId());
+        assertEquals(200, versions.getStatusCode().value());
+        assertEquals(1, ((List<?>) ((java.util.Map<?, ?>) versions.getBody()).get("data")).size());
+
+        when(requirementService.selectRequirementForUser(41L, 8L, 23L)).thenReturn(null);
+        when(requirementService.selectRequirementVersionsForUser(41L, 8L, 23L)).thenReturn(null);
+        assertEquals(404, controller.detail("41", "8").getStatusCode().value());
+        assertEquals(404, controller.versions("41", "8").getStatusCode().value());
+        verify(requirementService, org.mockito.Mockito.times(2)).selectRequirementForUser(41L, 8L, 23L);
+        verify(requirementService, org.mockito.Mockito.times(2)).selectRequirementVersionsForUser(41L, 8L, 23L);
+    }
+
+    @Test
+    void malformedRequirementIdsDoNotQueryService()
+    {
+        setCurrentUser(23L);
+        assertEquals(404, controller.detail("bad", "8").getStatusCode().value());
+        assertEquals(404, controller.versions("41", "bad").getStatusCode().value());
+        verifyNoInteractions(requirementService);
     }
 
     @Test

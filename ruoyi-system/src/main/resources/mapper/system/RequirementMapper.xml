@@ -19,6 +19,17 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="updateTime" column="update_time" />
     </resultMap>
 
+    <resultMap type="RequirementVersion" id="RequirementVersionResult">
+        <id property="versionId" column="version_id" />
+        <result property="requirementId" column="requirement_id" />
+        <result property="versionNo" column="version_no" />
+        <result property="title" column="title" />
+        <result property="content" column="content" />
+        <result property="attachmentSnapshot" column="attachment_snapshot" />
+        <result property="createdBy" column="created_by" />
+        <result property="createTime" column="create_time" />
+    </resultMap>
+
     <insert id="insertRequirement" parameterType="Requirement" useGeneratedKeys="true" keyProperty="requirementId">
         insert into pm_requirement (project_id, creator_id, current_version_id, status, is_deleted, create_time, update_time)
         values (#{projectId}, #{creatorId}, #{currentVersionId}, #{status}, #{isDeleted}, #{createTime}, #{updateTime})
@@ -63,6 +74,22 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
               where access_member.project_id = r.project_id
                 and access_member.user_id = #{userId}
           )
+    </select>
+
+    <select id="selectRequirementVersionsForUser" resultMap="RequirementVersionResult">
+        select v.version_id, v.requirement_id, v.version_no, v.title, v.content,
+               v.attachment_snapshot, v.created_by, v.create_time
+        from pm_requirement_version v
+        inner join pm_requirement r on r.requirement_id = v.requirement_id
+        where r.is_deleted = 0
+          and r.project_id = #{projectId}
+          and r.requirement_id = #{requirementId}
+          and exists (
+              select 1 from pm_project_member access_member
+              where access_member.project_id = r.project_id
+                and access_member.user_id = #{userId}
+          )
+        order by v.version_no asc, v.version_id asc
     </select>
 
     <select id="selectRequirementsForUser" resultMap="RequirementResult">
