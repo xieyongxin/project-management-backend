@@ -4,8 +4,35 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ruoyi.system.mapper.ProjectMemberMapper">
 
+    <resultMap type="ProjectMember" id="ProjectMemberResult">
+        <id property="projectId" column="project_id" />
+        <id property="userId" column="user_id" />
+        <result property="roleId" column="role_id" />
+        <result property="isProjectAdmin" column="is_project_admin" />
+        <result property="userName" column="user_name" />
+        <result property="nickName" column="nick_name" />
+        <result property="email" column="email" />
+        <result property="roleName" column="role_name" />
+        <result property="createTime" column="create_time" />
+        <result property="updateTime" column="update_time" />
+    </resultMap>
+
     <insert id="insertProjectMember" parameterType="ProjectMember">
-        insert into pm_project_member (project_id, user_id, is_project_admin, create_time, update_time)
-        values (#{projectId}, #{userId}, #{isProjectAdmin}, #{createTime}, #{updateTime})
+        insert into pm_project_member (project_id, user_id, role_id, is_project_admin, create_time, update_time)
+        values (#{projectId}, #{userId}, #{roleId}, #{isProjectAdmin}, #{createTime}, #{updateTime})
     </insert>
+
+    <select id="selectProjectMembersForUser" resultMap="ProjectMemberResult">
+        select m.project_id, m.user_id, m.role_id, m.is_project_admin,
+               m.create_time, m.update_time,
+               u.user_name, u.nick_name, u.email, r.role_name
+        from pm_project_member m
+        inner join pm_project_member access_member
+            on access_member.project_id = m.project_id
+           and access_member.user_id = #{userId}
+        left join sys_user u on u.user_id = m.user_id
+        left join sys_role r on r.role_id = m.role_id
+        where m.project_id = #{projectId}
+        order by m.is_project_admin desc, m.create_time asc, m.user_id asc
+    </select>
 </mapper>

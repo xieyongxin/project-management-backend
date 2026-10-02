@@ -41,8 +41,10 @@ class ProjectMapperXmlTest
             + "project_name_key varchar(255) not null unique, creator_id bigint not null, "
             + "create_time timestamp not null, update_time timestamp not null)");
         jdbc.execute("create table pm_project_member ("
-            + "project_id bigint not null, user_id bigint not null, is_project_admin integer not null, "
+            + "project_id bigint not null, user_id bigint not null, role_id bigint null, is_project_admin integer not null, "
             + "create_time timestamp not null, update_time timestamp not null, primary key(project_id, user_id))");
+        jdbc.execute("create table sys_user (user_id bigint primary key, user_name varchar(30), nick_name varchar(30), email varchar(50))");
+        jdbc.execute("create table sys_role (role_id bigint primary key, role_name varchar(30))");
 
         Configuration configuration = new Configuration(
             new Environment("pm0002-test", new JdbcTransactionFactory(), dataSource));
@@ -65,7 +67,12 @@ class ProjectMapperXmlTest
             Project second = insertProject(projectMapper, "Beta project", "beta project", 22L, now);
             memberMapper.insertProjectMember(member(first, 21L, now));
             memberMapper.insertProjectMember(member(second, 21L, now));
-            memberMapper.insertProjectMember(member(second, 22L, now));
+            jdbc.update("insert into sys_user (user_id, user_name, nick_name, email) values (21, 'alice', 'Alice', 'alice@example.com')");
+            jdbc.update("insert into sys_user (user_id, user_name, nick_name, email) values (22, 'bob', 'Bob', 'bob@example.com')");
+            jdbc.update("insert into sys_role (role_id, role_name) values (7, '项目成员')");
+            ProjectMember secondMember = member(second, 22L, now);
+            secondMember.setRoleId(7L);
+            memberMapper.insertProjectMember(secondMember);
             session.commit();
 
             assertEquals(List.of(first.getProjectId()), projectMapper.selectProjectListForUser(21L, "Alpha")
@@ -77,6 +84,11 @@ class ProjectMapperXmlTest
             assertNull(projectMapper.selectProjectForUser(first.getProjectId(), 1L));
             assertEquals(first.getProjectId(), projectMapper.selectProjectForUser(first.getProjectId(), 21L)
                 .getProjectId());
+            List<ProjectMember> members = memberMapper.selectProjectMembersForUser(second.getProjectId(), 21L);
+            assertEquals(2, members.size());
+            assertEquals("bob", members.get(1).getUserName());
+            assertEquals("项目成员", members.get(1).getRoleName());
+            assertEquals(0, memberMapper.selectProjectMembersForUser(second.getProjectId(), 1L).size());
         }
     }
 

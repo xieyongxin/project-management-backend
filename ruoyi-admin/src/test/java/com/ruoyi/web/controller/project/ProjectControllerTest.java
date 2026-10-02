@@ -31,6 +31,7 @@ import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.core.domain.model.LoginUser;
 import com.ruoyi.framework.web.service.PermissionService;
 import com.ruoyi.system.domain.Project;
+import com.ruoyi.system.domain.ProjectMember;
 import com.ruoyi.system.service.IProjectService;
 import com.ruoyi.web.domain.project.ProjectCreateRequest;
 
@@ -75,6 +76,47 @@ class ProjectControllerTest
         setCurrentUser(23L);
 
         ResponseEntity<?> response = controller.getInfo("not-a-number");
+
+        assertEquals(404, response.getStatusCode().value());
+        verifyNoInteractions(projectService);
+    }
+
+    @Test
+    void projectMemberListUsesCurrentUserAndReturnsMembers()
+    {
+        setCurrentUser(23L);
+        ProjectMember member = new ProjectMember();
+        member.setUserId(23L);
+        member.setUserName("alice");
+        member.setNickName("Alice");
+        member.setEmail("alice@example.com");
+        member.setIsProjectAdmin(1);
+        when(projectService.selectProjectMembersForUser(41L, 23L)).thenReturn(List.of(member));
+
+        ResponseEntity<AjaxResult> response = controller.members("41");
+
+        assertEquals(200, response.getStatusCode().value());
+        verify(projectService).selectProjectMembersForUser(41L, 23L);
+        assertEquals(1, ((List<?>) response.getBody().get("data")).size());
+    }
+
+    @Test
+    void nonMemberCannotReadProjectMemberList()
+    {
+        setCurrentUser(23L);
+        when(projectService.selectProjectMembersForUser(41L, 23L)).thenReturn(null);
+
+        ResponseEntity<AjaxResult> response = controller.members("41");
+
+        assertEquals(404, response.getStatusCode().value());
+    }
+
+    @Test
+    void malformedMemberListProjectIdUsesHttp404WithoutQueryingService()
+    {
+        setCurrentUser(23L);
+
+        ResponseEntity<AjaxResult> response = controller.members("not-a-number");
 
         assertEquals(404, response.getStatusCode().value());
         verifyNoInteractions(projectService);

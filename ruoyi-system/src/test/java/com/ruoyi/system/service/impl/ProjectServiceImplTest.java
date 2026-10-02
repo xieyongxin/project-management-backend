@@ -186,7 +186,7 @@ class ProjectServiceImplTest
                 + "project_name_key varchar(255) not null unique, "
                 + "creator_id bigint not null, create_time timestamp not null, update_time timestamp not null)");
             jdbcTemplate.execute("create table pm_project_member ("
-                + "project_id bigint not null, user_id bigint not null, is_project_admin integer not null, "
+                + "project_id bigint not null, user_id bigint not null, role_id bigint null, is_project_admin integer not null, "
                 + "create_time timestamp not null, update_time timestamp not null, "
                 + "primary key (project_id, user_id))");
             return new Object();
@@ -276,10 +276,25 @@ class ProjectServiceImplTest
                 throw new IllegalStateException("Injected member write failure");
             }
             return jdbc.update("insert into pm_project_member "
-                + "(project_id, user_id, is_project_admin, create_time, update_time) values (?, ?, ?, ?, ?)",
-                member.getProjectId(), member.getUserId(), member.getIsProjectAdmin(),
+                + "(project_id, user_id, role_id, is_project_admin, create_time, update_time) values (?, ?, ?, ?, ?, ?)",
+                member.getProjectId(), member.getUserId(), member.getRoleId(), member.getIsProjectAdmin(),
                 new java.sql.Timestamp(member.getCreateTime().getTime()),
                 new java.sql.Timestamp(member.getUpdateTime().getTime()));
+        }
+
+        @Override
+        public List<ProjectMember> selectProjectMembersForUser(Long projectId, Long userId)
+        {
+            return jdbc.query("select * from pm_project_member where project_id = ? and exists "
+                + "(select 1 from pm_project_member where project_id = ? and user_id = ?)",
+                (resultSet, rowNum) -> {
+                    ProjectMember member = new ProjectMember();
+                    member.setProjectId(resultSet.getLong("project_id"));
+                    member.setUserId(resultSet.getLong("user_id"));
+                    member.setRoleId((Long) resultSet.getObject("role_id"));
+                    member.setIsProjectAdmin(resultSet.getInt("is_project_admin"));
+                    return member;
+                }, projectId, projectId, userId);
         }
     }
 }

@@ -90,4 +90,14 @@ public class ProjectServiceImpl implements IProjectService
     {
         return projectMapper.selectProjectForUser(projectId, userId);
     }
+
+    @Override
+    public List<ProjectMember> selectProjectMembersForUser(Long projectId, Long userId)
+    {
+        if (projectId == null || userId == null || projectMapper.selectProjectForUser(projectId, userId) == null)
+        {
+            return null;
+        }
+        return projectMemberMapper.selectProjectMembersForUser(projectId, userId);
+    }
 }

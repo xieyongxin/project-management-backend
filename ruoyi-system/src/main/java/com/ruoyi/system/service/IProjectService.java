@@ -2,6 +2,7 @@ package com.ruoyi.system.service;
 
 import java.util.List;
 import com.ruoyi.system.domain.Project;
+import com.ruoyi.system.domain.ProjectMember;
 
 public interface IProjectService
 {
@@ -10,4 +11,6 @@ public interface IProjectService
     List<Project> selectProjectsForUser(Long userId, String projectName);
 
     Project selectProjectForUser(Long projectId, Long userId);
+
+    List<ProjectMember> selectProjectMembersForUser(Long projectId, Long userId);
 }

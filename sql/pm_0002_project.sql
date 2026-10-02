@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS pm_project (
 CREATE TABLE IF NOT EXISTS pm_project_member (
     project_id BIGINT NOT NULL COMMENT '项目ID',
     user_id BIGINT NOT NULL COMMENT '用户ID',
+    role_id BIGINT NULL COMMENT '若依全局角色ID',
     is_project_admin TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否项目管理员',
     create_time DATETIME NOT NULL COMMENT '创建时间',
     update_time DATETIME NOT NULL COMMENT '更新时间',
