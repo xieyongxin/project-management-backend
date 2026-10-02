@@ -104,6 +104,9 @@ class ProjectMapperXmlTest
             assertEquals("项目成员", memberMapper.selectActiveProjectRole(7L).getRoleName());
             assertEquals(1, memberMapper.selectActiveProjectRoles().size());
             assertEquals(1, memberMapper.updateProjectMemberRole(second.getProjectId(), 21L, 7L));
+            assertEquals(second.getProjectId(), projectMapper.lockProjectForMemberAdminUpdate(second.getProjectId()));
+            assertEquals(2, memberMapper.countProjectAdmins(second.getProjectId()));
+            assertEquals(1, memberMapper.updateProjectMemberAdmin(second.getProjectId(), 22L, 1));
 
             ProjectOperationLog log = new ProjectOperationLog();
             log.setProjectId(second.getProjectId());

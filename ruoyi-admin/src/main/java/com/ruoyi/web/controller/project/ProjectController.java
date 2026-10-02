@@ -26,6 +26,7 @@ import com.ruoyi.web.domain.project.ProjectCreateRequest;
 import com.ruoyi.web.domain.project.ProjectView;
 import com.ruoyi.web.domain.project.ProjectMemberView;
 import com.ruoyi.web.domain.project.ProjectMemberRoleRequest;
+import com.ruoyi.web.domain.project.ProjectMemberAdminRequest;
 import com.ruoyi.web.domain.project.ProjectRoleOptionView;
 
 @RestController
@@ -132,6 +133,28 @@ public class ProjectController extends BaseController
         {
             ProjectMember member = projectService.updateProjectMemberRole(parsedProjectId, getUserId(),
                 parsedMemberUserId, request.getRoleId());
+            return ResponseEntity.ok(success(ProjectMemberView.from(member)));
+        }
+        catch (ServiceException e)
+        {
+            return serviceError(e);
+        }
+    }
+
+    @PutMapping("/{projectId}/members/{memberUserId}/admin")
+    public ResponseEntity<AjaxResult> updateMemberAdmin(@PathVariable String projectId,
+        @PathVariable String memberUserId, @Validated @RequestBody ProjectMemberAdminRequest request)
+    {
+        Long parsedProjectId = parseProjectId(projectId);
+        Long parsedMemberUserId = parseProjectId(memberUserId);
+        if (parsedProjectId == null || parsedMemberUserId == null)
+        {
+            return notFound();
+        }
+        try
+        {
+            ProjectMember member = projectService.updateProjectMemberAdmin(parsedProjectId, getUserId(),
+                parsedMemberUserId, request.getProjectAdmin());
             return ResponseEntity.ok(success(ProjectMemberView.from(member)));
         }
         catch (ServiceException e)

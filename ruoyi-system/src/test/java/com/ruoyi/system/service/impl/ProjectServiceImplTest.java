@@ -202,6 +202,84 @@ class ProjectServiceImplTest
         assertEquals(0, LOG_MAPPER.logs.size());
     }
 
+    @Test
+    void projectAdminCanGrantAndRevokeAdminWhenMemberHasActiveRole()
+    {
+        Project project = SERVICE.createProject("Admin qualification project", 21L);
+        ProjectMember member = addMember(project, 22L, 7L, 0);
+        MEMBER_MAPPER.roles.put(7L, "项目成员");
+
+        ProjectMember granted = SERVICE.updateProjectMemberAdmin(project.getProjectId(), 21L, 22L, true);
+
+        assertEquals(1, granted.getIsProjectAdmin());
+        assertEquals("MEMBER_ADMIN_UPDATE", LOG_MAPPER.last.getOperationType());
+        assertEquals("授予项目管理员资格", LOG_MAPPER.last.getDetail());
+
+        ProjectMember revoked = SERVICE.updateProjectMemberAdmin(project.getProjectId(), 21L, 22L, false);
+
+        assertEquals(0, revoked.getIsProjectAdmin());
+        assertEquals(2, LOG_MAPPER.logs.size());
+        assertEquals("撤销项目管理员资格", LOG_MAPPER.last.getDetail());
+    }
+
+    @Test
+    void adminQualificationRequiresRoleAndRetainsOneAdmin()
+    {
+        Project project = SERVICE.createProject("Admin qualification boundary project", 21L);
+        addMember(project, 22L, null, 0);
+
+        ServiceException noRole = assertThrows(ServiceException.class,
+            () -> SERVICE.updateProjectMemberAdmin(project.getProjectId(), 21L, 22L, true));
+        assertEquals(HttpStatus.BAD_REQUEST, noRole.getCode());
+
+        ServiceException lastAdmin = assertThrows(ServiceException.class,
+            () -> SERVICE.updateProjectMemberAdmin(project.getProjectId(), 21L, 21L, false));
+        assertEquals(HttpStatus.BAD_REQUEST, lastAdmin.getCode());
+        assertEquals(1, MEMBER_MAPPER.selectProjectMember(project.getProjectId(), 21L).getIsProjectAdmin());
+    }
+
+    @Test
+    void nonAdminCannotChangeAdminQualification()
+    {
+        Project project = SERVICE.createProject("Admin permission boundary project", 21L);
+        addMember(project, 22L, 7L, 0);
+        MEMBER_MAPPER.roles.put(7L, "项目成员");
+
+        ServiceException error = assertThrows(ServiceException.class,
+            () -> SERVICE.updateProjectMemberAdmin(project.getProjectId(), 22L, 21L, false));
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getCode());
+        assertEquals(0, LOG_MAPPER.logs.size());
+    }
+
+    @Test
+    void adminQualificationRollsBackWhenOperationLogCannotBeWritten()
+    {
+        Project project = SERVICE.createProject("Admin qualification transaction project", 21L);
+        addMember(project, 22L, 7L, 0);
+        MEMBER_MAPPER.roles.put(7L, "项目成员");
+        LOG_MAPPER.failNextInsert.set(true);
+
+        assertThrows(IllegalStateException.class,
+            () -> SERVICE.updateProjectMemberAdmin(project.getProjectId(), 21L, 22L, true));
+
+        assertEquals(0, MEMBER_MAPPER.selectProjectMember(project.getProjectId(), 22L).getIsProjectAdmin());
+        assertEquals(0, LOG_MAPPER.logs.size());
+    }
+
+    private ProjectMember addMember(Project project, Long userId, Long roleId, int isProjectAdmin)
+    {
+        ProjectMember member = new ProjectMember();
+        member.setProjectId(project.getProjectId());
+        member.setUserId(userId);
+        member.setRoleId(roleId);
+        member.setIsProjectAdmin(isProjectAdmin);
+        member.setCreateTime(new java.util.Date());
+        member.setUpdateTime(new java.util.Date());
+        MEMBER_MAPPER.insertProjectMember(member);
+        return member;
+    }
+
     private int count(String table)
     {
         return JDBC.queryForObject("select count(*) from " + table, Integer.class);
@@ -323,6 +401,13 @@ class ProjectServiceImplTest
             return projects.isEmpty() ? null : projects.get(0);
         }
 
+        @Override
+        public Long lockProjectForMemberAdminUpdate(Long projectId)
+        {
+            return jdbc.query("select project_id from pm_project where project_id = ?",
+                resultSet -> resultSet.next() ? resultSet.getLong(1) : null, projectId);
+        }
+
         private RowMapper<Project> projectRowMapper()
         {
             return (resultSet, rowNum) -> {
@@ -401,6 +486,20 @@ class ProjectServiceImplTest
         {
             return jdbc.update("update pm_project_member set role_id = ? where project_id = ? and user_id = ?",
                 roleId, projectId, userId);
+        }
+
+        @Override
+        public int updateProjectMemberAdmin(Long projectId, Long userId, Integer isProjectAdmin)
+        {
+            return jdbc.update("update pm_project_member set is_project_admin = ? where project_id = ? and user_id = ?",
+                isProjectAdmin, projectId, userId);
+        }
+
+        @Override
+        public int countProjectAdmins(Long projectId)
+        {
+            return jdbc.queryForObject("select count(*) from pm_project_member "
+                + "where project_id = ? and is_project_admin = 1", Integer.class, projectId);
         }
 
         @Override

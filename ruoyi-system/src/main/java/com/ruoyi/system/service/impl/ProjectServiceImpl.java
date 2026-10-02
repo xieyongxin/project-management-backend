@@ -156,6 +156,68 @@ public class ProjectServiceImpl implements IProjectService
         return projectMemberMapper.selectProjectMember(projectId, memberUserId);
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ProjectMember updateProjectMemberAdmin(Long projectId, Long operatorId, Long memberUserId,
+        Boolean projectAdmin)
+    {
+        if (projectId == null || projectMapper.lockProjectForMemberAdminUpdate(projectId) == null)
+        {
+            throw new ServiceException("项目不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        requireProjectAdmin(projectId, operatorId);
+        if (memberUserId == null)
+        {
+            throw new ServiceException("项目成员不存在", HttpStatus.NOT_FOUND);
+        }
+        if (projectAdmin == null)
+        {
+            throw new ServiceException("管理员资格不能为空", HttpStatus.BAD_REQUEST);
+        }
+        ProjectMember member = projectMemberMapper.selectProjectMember(projectId, memberUserId);
+        if (member == null)
+        {
+            throw new ServiceException("项目成员不存在", HttpStatus.NOT_FOUND);
+        }
+        int desiredAdmin = projectAdmin ? 1 : 0;
+        int currentAdmin = Integer.valueOf(1).equals(member.getIsProjectAdmin()) ? 1 : 0;
+        if (desiredAdmin == currentAdmin)
+        {
+            return member;
+        }
+        Project project = projectMapper.selectProjectForUser(projectId, operatorId);
+        if (project == null)
+        {
+            throw new ServiceException("项目不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        boolean creator = project.getCreatorId() != null && project.getCreatorId().equals(memberUserId);
+        if (desiredAdmin == 1 && !creator && (member.getRoleId() == null
+            || projectMemberMapper.selectActiveProjectRole(member.getRoleId()) == null))
+        {
+            throw new ServiceException("项目管理员必须先绑定全局角色", HttpStatus.BAD_REQUEST);
+        }
+        if (desiredAdmin == 0 && projectMemberMapper.countProjectAdmins(projectId) <= 1)
+        {
+            throw new ServiceException("项目必须至少保留一名管理员", HttpStatus.BAD_REQUEST);
+        }
+        if (projectMemberMapper.updateProjectMemberAdmin(projectId, memberUserId, desiredAdmin) != 1)
+        {
+            throw new ServiceException("更新项目管理员资格失败");
+        }
+        ProjectOperationLog log = new ProjectOperationLog();
+        log.setProjectId(projectId);
+        log.setOperatorId(operatorId);
+        log.setTargetUserId(memberUserId);
+        log.setOperationType("MEMBER_ADMIN_UPDATE");
+        log.setDetail(desiredAdmin == 1 ? "授予项目管理员资格" : "撤销项目管理员资格");
+        log.setCreateTime(new Date());
+        if (projectOperationLogMapper.insertProjectOperationLog(log) != 1)
+        {
+            throw new ServiceException("记录项目操作日志失败");
+        }
+        return projectMemberMapper.selectProjectMember(projectId, memberUserId);
+    }
+
     private ProjectMember requireProjectAdmin(Long projectId, Long userId)
     {
         if (projectId == null || userId == null)

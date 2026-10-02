@@ -54,6 +54,20 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
           and user_id = #{userId}
     </update>
 
+    <update id="updateProjectMemberAdmin">
+        update pm_project_member
+        set is_project_admin = #{isProjectAdmin}, update_time = CURRENT_TIMESTAMP
+        where project_id = #{projectId}
+          and user_id = #{userId}
+    </update>
+
+    <select id="countProjectAdmins" resultType="int">
+        select count(*)
+        from pm_project_member
+        where project_id = #{projectId}
+          and is_project_admin = 1
+    </select>
+
     <select id="selectActiveProjectRole" resultType="SysRole">
         select r.role_id as roleId, r.role_name as roleName, r.role_key as roleKey,
                r.role_sort as roleSort, r.status as status, r.del_flag as delFlag

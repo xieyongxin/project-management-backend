@@ -11,4 +11,6 @@ public interface ProjectMapper
     List<Project> selectProjectListForUser(@Param("userId") Long userId, @Param("projectName") String projectName);
 
     Project selectProjectForUser(@Param("projectId") Long projectId, @Param("userId") Long userId);
+
+    Long lockProjectForMemberAdminUpdate(@Param("projectId") Long projectId);
 }
