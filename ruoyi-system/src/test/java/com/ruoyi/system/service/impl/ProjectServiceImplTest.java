@@ -58,6 +58,8 @@ class ProjectServiceImplTest
         LOG_MAPPER.logs.clear();
         LOG_MAPPER.last = null;
         LOG_MAPPER.failNextInsert.set(false);
+        JDBC.update("delete from pm_requirement_owner");
+        JDBC.update("delete from pm_requirement");
         JDBC.update("delete from pm_project_member");
         JDBC.update("delete from pm_project");
         JDBC.update("delete from sys_user");
@@ -516,6 +518,24 @@ class ProjectServiceImplTest
     }
 
     @Test
+    void projectMemberRemovalRejectsCurrentRequirementOwner()
+    {
+        Project project = SERVICE.createProject("Requirement owner removal project", 21L);
+        addMember(project, 22L, 7L, 0);
+        JDBC.update("insert into pm_requirement (project_id, creator_id, status, is_deleted, create_time, update_time) "
+            + "values (?, ?, 'todo', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", project.getProjectId(), 21L);
+        Long requirementId = JDBC.queryForObject("select max(requirement_id) from pm_requirement", Long.class);
+        JDBC.update("insert into pm_requirement_owner (requirement_id, user_id) values (?, ?)", requirementId, 22L);
+
+        ServiceException error = assertThrows(ServiceException.class,
+            () -> SERVICE.removeProjectMember(project.getProjectId(), 21L, 22L));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getCode());
+        assertNotNull(MEMBER_MAPPER.selectProjectMember(project.getProjectId(), 22L));
+        assertEquals(0, LOG_MAPPER.logs.size());
+    }
+
+    @Test
     void projectAdminCanRemoveMemberFromArchivedProject()
     {
         Project project = SERVICE.createProject("Archived member removal project", 21L);
@@ -631,6 +651,13 @@ class ProjectServiceImplTest
             jdbcTemplate.execute("create table sys_user ("
                 + "user_id bigint primary key, user_name varchar(30), nick_name varchar(30), email varchar(50), "
                 + "status varchar(1) not null default '0', del_flag varchar(1) not null default '0')");
+            jdbcTemplate.execute("create table pm_requirement ("
+                + "requirement_id bigint auto_increment primary key, project_id bigint not null, "
+                + "creator_id bigint not null, current_version_id bigint null, status varchar(100) not null, "
+                + "is_deleted integer not null default 0, create_time timestamp not null, update_time timestamp not null)");
+            jdbcTemplate.execute("create table pm_requirement_owner ("
+                + "requirement_id bigint not null, user_id bigint not null, "
+                + "primary key(requirement_id, user_id))");
             return new Object();
         }
     }
@@ -823,6 +850,15 @@ class ProjectServiceImplTest
         {
             return jdbc.queryForObject("select count(*) from pm_project_member "
                 + "where project_id = ? and is_project_admin = 1", Integer.class, projectId);
+        }
+
+        @Override
+        public int countRequirementOwnerReferences(Long projectId, Long userId)
+        {
+            return jdbc.queryForObject("select count(*) from pm_requirement_owner o "
+                + "inner join pm_requirement r on r.requirement_id = o.requirement_id "
+                + "where r.project_id = ? and r.is_deleted = 0 and o.user_id = ?", Integer.class,
+                projectId, userId);
         }
 
         @Override

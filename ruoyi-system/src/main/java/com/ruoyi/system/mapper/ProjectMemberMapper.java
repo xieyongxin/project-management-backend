@@ -26,6 +26,8 @@ public interface ProjectMemberMapper
 
     int countProjectAdmins(@Param("projectId") Long projectId);
 
+    int countRequirementOwnerReferences(@Param("projectId") Long projectId, @Param("userId") Long userId);
+
     SysRole selectActiveProjectRole(@Param("roleId") Long roleId);
 
     List<SysRole> selectActiveProjectRoles();

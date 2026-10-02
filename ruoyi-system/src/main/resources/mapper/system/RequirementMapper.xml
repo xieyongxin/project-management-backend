@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.RequirementMapper">
+
+    <resultMap type="Requirement" id="RequirementResult">
+        <id property="requirementId" column="requirement_id" />
+        <result property="projectId" column="project_id" />
+        <result property="creatorId" column="creator_id" />
+        <result property="currentVersionId" column="current_version_id" />
+        <result property="currentVersionNo" column="version_no" />
+        <result property="title" column="title" />
+        <result property="content" column="content" />
+        <result property="status" column="status" />
+        <result property="statusLabel" column="status_label" />
+        <result property="isDeleted" column="is_deleted" />
+        <result property="createTime" column="create_time" />
+        <result property="updateTime" column="update_time" />
+    </resultMap>
+
+    <insert id="insertRequirement" parameterType="Requirement" useGeneratedKeys="true" keyProperty="requirementId">
+        insert into pm_requirement (project_id, creator_id, current_version_id, status, is_deleted, create_time, update_time)
+        values (#{projectId}, #{creatorId}, #{currentVersionId}, #{status}, #{isDeleted}, #{createTime}, #{updateTime})
+    </insert>
+
+    <insert id="insertRequirementVersion" parameterType="RequirementVersion"
+        useGeneratedKeys="true" keyProperty="versionId">
+        insert into pm_requirement_version
+            (requirement_id, version_no, title, content, attachment_snapshot, created_by, create_time)
+        values
+            (#{requirementId}, #{versionNo}, #{title}, #{content}, #{attachmentSnapshot}, #{createdBy}, #{createTime})
+    </insert>
+
+    <update id="updateCurrentVersion">
+        update pm_requirement
+        set current_version_id = #{versionId}, update_time = CURRENT_TIMESTAMP
+        where requirement_id = #{requirementId}
+    </update>
+
+    <insert id="insertRequirementOwner">
+        insert into pm_requirement_owner (requirement_id, user_id)
+        values (#{requirementId}, #{userId})
+    </insert>
+
+    <sql id="selectRequirementColumns">
+        select r.requirement_id, r.project_id, r.creator_id, r.current_version_id,
+               v.version_no, v.title, v.content, r.status,
+               d.dict_label as status_label, r.is_deleted, r.create_time, r.update_time
+        from pm_requirement r
+        inner join pm_requirement_version v on v.version_id = r.current_version_id
+        left join sys_dict_data d on d.dict_type = 'pm_requirement_status'
+            and d.dict_value = r.status
+        where r.is_deleted = 0
+    </sql>
+
+    <select id="selectRequirementForUser" resultMap="RequirementResult">
+        <include refid="selectRequirementColumns" />
+          and r.project_id = #{projectId}
+          and r.requirement_id = #{requirementId}
+          and exists (
+              select 1 from pm_project_member access_member
+              where access_member.project_id = r.project_id
+                and access_member.user_id = #{userId}
+          )
+    </select>
+
+    <select id="selectRequirementsForUser" resultMap="RequirementResult">
+        <include refid="selectRequirementColumns" />
+          and r.project_id = #{projectId}
+          and exists (
+              select 1 from pm_project_member access_member
+              where access_member.project_id = r.project_id
+                and access_member.user_id = #{userId}
+          )
+        order by r.create_time desc, r.requirement_id desc
+    </select>
+
+    <select id="selectRequirementOwners" resultType="RequirementOwner">
+        select o.requirement_id, o.user_id, u.user_name, u.nick_name, u.email
+        from pm_requirement_owner o
+        inner join sys_user u on u.user_id = o.user_id
+        where o.requirement_id = #{requirementId}
+        order by o.user_id asc
+    </select>
+
+    <select id="selectProjectMembersByIds" resultType="RequirementOwner">
+        select m.user_id, u.user_name, u.nick_name, u.email
+        from pm_project_member m
+        inner join sys_user u on u.user_id = m.user_id
+        where m.project_id = #{projectId}
+          and m.user_id in
+          <foreach collection="userIds" item="userId" open="(" separator="," close=")">
+              #{userId}
+          </foreach>
+        order by m.user_id asc
+    </select>
+
+    <select id="selectActiveRequirementStatus" resultType="com.ruoyi.common.core.domain.entity.SysDictData">
+        select dict_code as dictCode, dict_sort as dictSort, dict_label as dictLabel,
+               dict_value as dictValue, dict_type as dictType, css_class as cssClass,
+               list_class as listClass, is_default as isDefault, status, create_by as createBy,
+               create_time as createTime, update_by as updateBy, update_time as updateTime, remark
+        from sys_dict_data
+        where dict_type = 'pm_requirement_status'
+          and dict_value = #{status}
+          and status = '0'
+        limit 1
+    </select>
+
+    <select id="selectActiveRequirementStatuses" resultType="com.ruoyi.common.core.domain.entity.SysDictData">
+        select dict_code as dictCode, dict_sort as dictSort, dict_label as dictLabel,
+               dict_value as dictValue, dict_type as dictType, css_class as cssClass,
+               list_class as listClass, is_default as isDefault, status, create_by as createBy,
+               create_time as createTime, update_by as updateBy, update_time as updateTime, remark
+        from sys_dict_data
+        where dict_type = 'pm_requirement_status'
+          and status = '0'
+        order by dict_sort asc, dict_code asc
+    </select>
+
+</mapper>

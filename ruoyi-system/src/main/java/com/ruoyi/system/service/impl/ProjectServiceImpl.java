@@ -394,6 +394,10 @@ public class ProjectServiceImpl implements IProjectService
         {
             throw new ServiceException("项目成员不存在", HttpStatus.NOT_FOUND);
         }
+        if (projectMemberMapper.countRequirementOwnerReferences(projectId, memberUserId) > 0)
+        {
+            throw new ServiceException("该成员仍是需求负责人，不能移除", HttpStatus.BAD_REQUEST);
+        }
         if (Integer.valueOf(1).equals(member.getIsProjectAdmin())
             && projectMemberMapper.countProjectAdmins(projectId) <= 1)
         {

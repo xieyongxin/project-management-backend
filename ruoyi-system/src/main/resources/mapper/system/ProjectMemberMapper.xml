@@ -82,6 +82,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
           and is_project_admin = 1
     </select>
 
+    <select id="countRequirementOwnerReferences" resultType="int">
+        select count(*)
+        from pm_requirement_owner o
+        inner join pm_requirement r on r.requirement_id = o.requirement_id
+        where r.project_id = #{projectId}
+          and r.is_deleted = 0
+          and o.user_id = #{userId}
+    </select>
+
     <select id="selectActiveProjectRole" resultType="SysRole">
         select r.role_id as roleId, r.role_name as roleName, r.role_key as roleKey,
                r.role_sort as roleSort, r.status as status, r.del_flag as delFlag
