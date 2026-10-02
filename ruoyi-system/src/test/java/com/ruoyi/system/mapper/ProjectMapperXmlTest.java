@@ -120,6 +120,13 @@ class ProjectMapperXmlTest
             log.setDetail("更新项目成员全局角色");
             log.setCreateTime(now);
             assertEquals(1, session.getMapper(ProjectOperationLogMapper.class).insertProjectOperationLog(log));
+            List<ProjectOperationLog> logs = session.getMapper(ProjectOperationLogMapper.class)
+                .selectProjectOperationLogsForUser(second.getProjectId(), 21L);
+            assertEquals(1, logs.size());
+            assertEquals("alice", logs.get(0).getOperatorName());
+            assertEquals("bob", logs.get(0).getTargetUserName());
+            assertEquals(0, session.getMapper(ProjectOperationLogMapper.class)
+                .selectProjectOperationLogsForUser(second.getProjectId(), 1L).size());
         }
     }
 

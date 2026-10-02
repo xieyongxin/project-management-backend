@@ -9,4 +9,24 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         values
             (#{projectId}, #{operatorId}, #{targetUserId}, #{previousRoleId}, #{newRoleId}, #{operationType}, #{detail}, #{createTime})
     </insert>
+
+    <select id="selectProjectOperationLogsForUser" resultType="ProjectOperationLog">
+        select l.log_id as logId,
+               l.project_id as projectId,
+               l.operator_id as operatorId,
+               l.target_user_id as targetUserId,
+               l.operation_type as operationType,
+               l.detail as detail,
+               l.create_time as createTime,
+               operator_user.user_name as operatorName,
+               target_user.user_name as targetUserName
+        from pm_project_operation_log l
+        inner join pm_project_member access_member
+            on access_member.project_id = l.project_id
+           and access_member.user_id = #{userId}
+        left join sys_user operator_user on operator_user.user_id = l.operator_id
+        left join sys_user target_user on target_user.user_id = l.target_user_id
+        where l.project_id = #{projectId}
+        order by l.create_time desc, l.log_id desc
+    </select>
 </mapper>

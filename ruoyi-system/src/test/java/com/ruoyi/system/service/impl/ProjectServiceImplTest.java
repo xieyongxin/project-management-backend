@@ -325,6 +325,20 @@ class ProjectServiceImplTest
         assertEquals(0, LOG_MAPPER.logs.size());
     }
 
+    @Test
+    void projectMemberCanQueryOnlyTheirProjectLogs()
+    {
+        Project project = SERVICE.createProject("Log query project", 21L);
+        ProjectOperationLog log = new ProjectOperationLog();
+        log.setProjectId(project.getProjectId());
+        log.setOperatorId(21L);
+        log.setOperationType("PROJECT_NAME_UPDATE");
+        LOG_MAPPER.insertProjectOperationLog(log);
+
+        assertEquals(1, SERVICE.selectProjectOperationLogsForUser(project.getProjectId(), 21L).size());
+        assertNull(SERVICE.selectProjectOperationLogsForUser(project.getProjectId(), 22L));
+    }
+
     private ProjectMember addMember(Project project, Long userId, Long roleId, int isProjectAdmin)
     {
         ProjectMember member = new ProjectMember();
@@ -608,6 +622,12 @@ class ProjectServiceImplTest
             last = log;
             logs.add(log);
             return 1;
+        }
+
+        @Override
+        public List<ProjectOperationLog> selectProjectOperationLogsForUser(Long projectId, Long userId)
+        {
+            return logs.stream().filter(log -> projectId.equals(log.getProjectId())).toList();
         }
     }
 }

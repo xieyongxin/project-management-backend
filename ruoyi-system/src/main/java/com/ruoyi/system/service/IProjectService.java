@@ -4,6 +4,7 @@ import java.util.List;
 import com.ruoyi.common.core.domain.entity.SysRole;
 import com.ruoyi.system.domain.Project;
 import com.ruoyi.system.domain.ProjectMember;
+import com.ruoyi.system.domain.ProjectOperationLog;
 
 public interface IProjectService
 {
@@ -23,4 +24,6 @@ public interface IProjectService
 
     ProjectMember updateProjectMemberAdmin(Long projectId, Long operatorId, Long memberUserId,
         Boolean projectAdmin);
+
+    List<ProjectOperationLog> selectProjectOperationLogsForUser(Long projectId, Long userId);
 }

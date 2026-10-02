@@ -34,6 +34,7 @@ import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.framework.web.service.PermissionService;
 import com.ruoyi.system.domain.Project;
 import com.ruoyi.system.domain.ProjectMember;
+import com.ruoyi.system.domain.ProjectOperationLog;
 import com.ruoyi.system.service.IProjectService;
 import com.ruoyi.web.domain.project.ProjectCreateRequest;
 import com.ruoyi.web.domain.project.ProjectMemberRoleRequest;
@@ -209,6 +210,41 @@ class ProjectControllerTest
         verify(projectService).updateProjectName(41L, 23L, "Renamed project");
         assertEquals("Renamed project", ((com.ruoyi.web.domain.project.ProjectView) response.getBody().get("data"))
             .getProjectName());
+    }
+
+    @Test
+    void projectLogListUsesCurrentUserAndMapsRows()
+    {
+        setCurrentUser(23L, Set.of("project:log:list"));
+        ProjectOperationLog log = new ProjectOperationLog();
+        log.setLogId(8L);
+        log.setProjectId(41L);
+        log.setOperatorName("alice");
+        log.setTargetUserName("bob");
+        log.setOperationType("MEMBER_ROLE_UPDATE");
+        when(projectService.selectProjectOperationLogsForUser(41L, 23L)).thenReturn(List.of(log));
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(new MockHttpServletRequest()));
+
+        ResponseEntity<?> response = controller.operationLogs("41");
+
+        assertEquals(200, response.getStatusCode().value());
+        verify(projectService).selectProjectOperationLogsForUser(41L, 23L);
+        TableDataInfo result = (TableDataInfo) response.getBody();
+        assertEquals(1, result.getTotal());
+    }
+
+    @Test
+    void projectLogListRequiresPermission()
+    {
+        try (AnnotationConfigApplicationContext context =
+            new AnnotationConfigApplicationContext(SecurityTestConfiguration.class))
+        {
+            RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(new MockHttpServletRequest()));
+            ProjectController securedController = context.getBean(ProjectController.class);
+            setCurrentUser(23L, Set.of());
+
+            assertThrows(AccessDeniedException.class, () -> securedController.operationLogs("41"));
+        }
     }
 
     @Test

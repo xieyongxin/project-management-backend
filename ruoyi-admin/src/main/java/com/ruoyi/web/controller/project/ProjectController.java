@@ -20,6 +20,7 @@ import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.system.domain.Project;
 import com.ruoyi.system.domain.ProjectMember;
+import com.ruoyi.system.domain.ProjectOperationLog;
 import com.ruoyi.common.core.domain.entity.SysRole;
 import com.ruoyi.system.service.IProjectService;
 import com.ruoyi.web.domain.project.ProjectCreateRequest;
@@ -29,6 +30,7 @@ import com.ruoyi.web.domain.project.ProjectMemberRoleRequest;
 import com.ruoyi.web.domain.project.ProjectMemberAdminRequest;
 import com.ruoyi.web.domain.project.ProjectNameUpdateRequest;
 import com.ruoyi.web.domain.project.ProjectRoleOptionView;
+import com.ruoyi.web.domain.project.ProjectOperationLogView;
 
 @RestController
 @RequestMapping("/project")
@@ -182,6 +184,26 @@ public class ProjectController extends BaseController
         {
             return serviceError(e);
         }
+    }
+
+    @PreAuthorize("@ss.hasPermi('project:log:list')")
+    @GetMapping("/{projectId}/logs")
+    public ResponseEntity<?> operationLogs(@PathVariable String projectId)
+    {
+        Long parsedProjectId = parseProjectId(projectId);
+        if (parsedProjectId == null)
+        {
+            return notFound();
+        }
+        startPage();
+        List<ProjectOperationLog> logs = projectService.selectProjectOperationLogsForUser(parsedProjectId, getUserId());
+        if (logs == null)
+        {
+            return notFound();
+        }
+        TableDataInfo result = getDataTable(logs);
+        result.setRows(logs.stream().map(ProjectOperationLogView::from).toList());
+        return ResponseEntity.ok(result);
     }
 
     private Long parseProjectId(String projectId)

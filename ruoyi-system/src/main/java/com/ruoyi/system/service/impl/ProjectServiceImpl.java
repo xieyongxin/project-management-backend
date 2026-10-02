@@ -273,6 +273,16 @@ public class ProjectServiceImpl implements IProjectService
         return projectMemberMapper.selectProjectMember(projectId, memberUserId);
     }
 
+    @Override
+    public List<ProjectOperationLog> selectProjectOperationLogsForUser(Long projectId, Long userId)
+    {
+        if (projectId == null || userId == null || projectMapper.selectProjectForUser(projectId, userId) == null)
+        {
+            return null;
+        }
+        return projectOperationLogMapper.selectProjectOperationLogsForUser(projectId, userId);
+    }
+
     private ProjectMember requireProjectAdmin(Long projectId, Long userId)
     {
         if (projectId == null || userId == null)
