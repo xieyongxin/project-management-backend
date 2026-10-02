@@ -27,5 +27,7 @@ public interface IProjectService
     ProjectMember updateProjectMemberAdmin(Long projectId, Long operatorId, Long memberUserId,
         Boolean projectAdmin);
 
+    void removeProjectMember(Long projectId, Long operatorId, Long memberUserId);
+
     List<ProjectOperationLog> selectProjectOperationLogsForUser(Long projectId, Long userId);
 }

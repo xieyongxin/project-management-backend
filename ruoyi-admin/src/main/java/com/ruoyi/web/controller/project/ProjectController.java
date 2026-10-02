@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -200,6 +201,27 @@ public class ProjectController extends BaseController
             ProjectMember member = projectService.updateProjectMemberAdmin(parsedProjectId, getUserId(),
                 parsedMemberUserId, request.getProjectAdmin());
             return ResponseEntity.ok(success(ProjectMemberView.from(member)));
+        }
+        catch (ServiceException e)
+        {
+            return serviceError(e);
+        }
+    }
+
+    @DeleteMapping("/{projectId}/members/{memberUserId}")
+    public ResponseEntity<AjaxResult> removeMember(@PathVariable String projectId,
+        @PathVariable String memberUserId)
+    {
+        Long parsedProjectId = parseProjectId(projectId);
+        Long parsedMemberUserId = parseProjectId(memberUserId);
+        if (parsedProjectId == null || parsedMemberUserId == null)
+        {
+            return notFound();
+        }
+        try
+        {
+            projectService.removeProjectMember(parsedProjectId, getUserId(), parsedMemberUserId);
+            return ResponseEntity.ok(success());
         }
         catch (ServiceException e)
         {

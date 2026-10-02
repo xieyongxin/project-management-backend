@@ -132,6 +132,8 @@ class ProjectMapperXmlTest
             assertEquals("bob", logs.get(0).getTargetUserName());
             assertEquals(0, session.getMapper(ProjectOperationLogMapper.class)
                 .selectProjectOperationLogsForUser(second.getProjectId(), 1L).size());
+            assertEquals(1, memberMapper.deleteProjectMember(second.getProjectId(), 22L));
+            assertNull(memberMapper.selectProjectMember(second.getProjectId(), 22L));
         }
     }
 

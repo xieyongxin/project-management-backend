@@ -364,6 +364,68 @@ class ProjectServiceImplTest
     }
 
     @Test
+    void projectAdminCanRemoveMemberAndOperationIsLogged()
+    {
+        Project project = SERVICE.createProject("Member removal project", 21L);
+        addMember(project, 22L, 7L, 0);
+        MEMBER_MAPPER.roles.put(7L, "项目成员");
+
+        SERVICE.removeProjectMember(project.getProjectId(), 21L, 22L);
+
+        assertNull(MEMBER_MAPPER.selectProjectMember(project.getProjectId(), 22L));
+        assertEquals("MEMBER_REMOVE", LOG_MAPPER.last.getOperationType());
+        assertEquals(22L, LOG_MAPPER.last.getTargetUserId());
+        assertEquals("移除项目成员", LOG_MAPPER.last.getDetail());
+    }
+
+    @Test
+    void projectMemberRemovalRequiresAdminAndRetainsLastAdmin()
+    {
+        Project project = SERVICE.createProject("Member removal boundary project", 21L);
+        addMember(project, 22L, 7L, 0);
+
+        ServiceException nonAdmin = assertThrows(ServiceException.class,
+            () -> SERVICE.removeProjectMember(project.getProjectId(), 22L, 21L));
+        ServiceException lastAdmin = assertThrows(ServiceException.class,
+            () -> SERVICE.removeProjectMember(project.getProjectId(), 21L, 21L));
+
+        assertEquals(HttpStatus.FORBIDDEN, nonAdmin.getCode());
+        assertEquals(HttpStatus.BAD_REQUEST, lastAdmin.getCode());
+        assertNotNull(MEMBER_MAPPER.selectProjectMember(project.getProjectId(), 21L));
+        assertEquals(0, LOG_MAPPER.logs.size());
+    }
+
+    @Test
+    void projectMemberRemovalRejectsNonMemberAndRollsBackWhenLogFails()
+    {
+        Project project = SERVICE.createProject("Member removal transaction project", 21L);
+        addMember(project, 22L, 7L, 0);
+
+        ServiceException missing = assertThrows(ServiceException.class,
+            () -> SERVICE.removeProjectMember(project.getProjectId(), 21L, 99L));
+        assertEquals(HttpStatus.NOT_FOUND, missing.getCode());
+
+        LOG_MAPPER.failNextInsert.set(true);
+        assertThrows(IllegalStateException.class,
+            () -> SERVICE.removeProjectMember(project.getProjectId(), 21L, 22L));
+
+        assertNotNull(MEMBER_MAPPER.selectProjectMember(project.getProjectId(), 22L));
+        assertEquals(0, LOG_MAPPER.logs.size());
+    }
+
+    @Test
+    void projectAdminCanRemoveMemberFromArchivedProject()
+    {
+        Project project = SERVICE.createProject("Archived member removal project", 21L);
+        addMember(project, 22L, 7L, 0);
+        SERVICE.updateProjectStatus(project.getProjectId(), 21L, true);
+
+        SERVICE.removeProjectMember(project.getProjectId(), 21L, 22L);
+
+        assertNull(MEMBER_MAPPER.selectProjectMember(project.getProjectId(), 22L));
+    }
+
+    @Test
     void projectMemberCanQueryOnlyTheirProjectLogs()
     {
         Project project = SERVICE.createProject("Log query project", 21L);
@@ -619,6 +681,13 @@ class ProjectServiceImplTest
         {
             return jdbc.update("update pm_project_member set is_project_admin = ? where project_id = ? and user_id = ?",
                 isProjectAdmin, projectId, userId);
+        }
+
+        @Override
+        public int deleteProjectMember(Long projectId, Long userId)
+        {
+            return jdbc.update("delete from pm_project_member where project_id = ? and user_id = ?",
+                projectId, userId);
         }
 
         @Override

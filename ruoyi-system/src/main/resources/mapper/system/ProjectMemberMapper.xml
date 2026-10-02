@@ -61,6 +61,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
           and user_id = #{userId}
     </update>
 
+    <delete id="deleteProjectMember">
+        delete from pm_project_member
+        where project_id = #{projectId}
+          and user_id = #{userId}
+    </delete>
+
     <select id="countProjectAdmins" resultType="int">
         select count(*)
         from pm_project_member

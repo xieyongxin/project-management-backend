@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -211,6 +212,41 @@ class ProjectControllerTest
         verify(projectService).updateProjectName(41L, 23L, "Renamed project");
         assertEquals("Renamed project", ((com.ruoyi.web.domain.project.ProjectView) response.getBody().get("data"))
             .getProjectName());
+    }
+
+    @Test
+    void projectAdminCanRemoveProjectMember()
+    {
+        setCurrentUser(23L);
+
+        ResponseEntity<AjaxResult> response = controller.removeMember("41", "24");
+
+        assertEquals(200, response.getStatusCode().value());
+        verify(projectService).removeProjectMember(41L, 23L, 24L);
+    }
+
+    @Test
+    void malformedMemberRemovalIdsUseHttp404WithoutQueryingService()
+    {
+        setCurrentUser(23L);
+
+        ResponseEntity<AjaxResult> response = controller.removeMember("not-a-number", "24");
+
+        assertEquals(404, response.getStatusCode().value());
+        verifyNoInteractions(projectService);
+    }
+
+    @Test
+    void memberRemovalPropagatesProjectAccessStatus()
+    {
+        setCurrentUser(23L);
+        doThrow(new ServiceException("只有项目管理员可以管理项目", HttpStatus.FORBIDDEN))
+            .when(projectService).removeProjectMember(41L, 23L, 24L);
+
+        ResponseEntity<AjaxResult> response = controller.removeMember("41", "24");
+
+        assertEquals(403, response.getStatusCode().value());
+        assertEquals(HttpStatus.FORBIDDEN, response.getBody().get("code"));
     }
 
     @Test

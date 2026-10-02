@@ -311,6 +311,49 @@ public class ProjectServiceImpl implements IProjectService
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void removeProjectMember(Long projectId, Long operatorId, Long memberUserId)
+    {
+        if (projectId == null || projectMapper.lockProjectForUpdate(projectId) == null)
+        {
+            throw new ServiceException("项目不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        requireProjectAdmin(projectId, operatorId);
+        if (memberUserId == null)
+        {
+            throw new ServiceException("项目成员不存在", HttpStatus.NOT_FOUND);
+        }
+
+        ProjectMember member = projectMemberMapper.selectProjectMember(projectId, memberUserId);
+        if (member == null)
+        {
+            throw new ServiceException("项目成员不存在", HttpStatus.NOT_FOUND);
+        }
+        if (Integer.valueOf(1).equals(member.getIsProjectAdmin())
+            && projectMemberMapper.countProjectAdmins(projectId) <= 1)
+        {
+            throw new ServiceException("项目必须至少保留一名管理员", HttpStatus.BAD_REQUEST);
+        }
+
+        if (projectMemberMapper.deleteProjectMember(projectId, memberUserId) != 1)
+        {
+            throw new ServiceException("移除项目成员失败");
+        }
+
+        ProjectOperationLog log = new ProjectOperationLog();
+        log.setProjectId(projectId);
+        log.setOperatorId(operatorId);
+        log.setTargetUserId(memberUserId);
+        log.setOperationType("MEMBER_REMOVE");
+        log.setDetail("移除项目成员");
+        log.setCreateTime(new Date());
+        if (projectOperationLogMapper.insertProjectOperationLog(log) != 1)
+        {
+            throw new ServiceException("记录项目操作日志失败");
+        }
+    }
+
+    @Override
     public List<ProjectOperationLog> selectProjectOperationLogsForUser(Long projectId, Long userId)
     {
         if (projectId == null || userId == null || projectMapper.selectProjectForUser(projectId, userId) == null)

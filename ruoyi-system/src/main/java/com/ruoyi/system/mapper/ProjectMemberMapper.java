@@ -20,6 +20,8 @@ public interface ProjectMemberMapper
     int updateProjectMemberAdmin(@Param("projectId") Long projectId, @Param("userId") Long userId,
         @Param("isProjectAdmin") Integer isProjectAdmin);
 
+    int deleteProjectMember(@Param("projectId") Long projectId, @Param("userId") Long userId);
+
     int countProjectAdmins(@Param("projectId") Long projectId);
 
     SysRole selectActiveProjectRole(@Param("roleId") Long roleId);
