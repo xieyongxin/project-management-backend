@@ -122,6 +122,12 @@ class TaskMapperXmlTest
             assertEquals(0, mapper.selectTaskVersionsForUser(41L, task.getTaskId(), 99L).size());
             assertEquals(1, mapper.selectTasksForUser(41L, 21L).size());
             assertEquals(0, mapper.selectTasksForUser(41L, 99L).size());
+            assertEquals(1, mapper.updateTaskStatus(41L, task.getTaskId(), "done"));
+            session.commit();
+            assertEquals("done", jdbc.queryForObject("select status from pm_task where task_id = ?", String.class,
+                task.getTaskId()));
+            assertEquals(0, mapper.updateTaskStatus(42L, task.getTaskId(), "todo"));
+            session.commit();
         }
     }
 

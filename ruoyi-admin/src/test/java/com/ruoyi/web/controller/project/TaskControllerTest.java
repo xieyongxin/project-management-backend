@@ -30,6 +30,7 @@ import com.ruoyi.system.domain.TaskVersion;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.system.service.ITaskService;
 import com.ruoyi.web.domain.project.TaskCreateRequest;
+import com.ruoyi.web.domain.project.TaskStatusUpdateRequest;
 import com.ruoyi.web.domain.project.TaskVersionView;
 
 class TaskControllerTest
@@ -60,14 +61,19 @@ class TaskControllerTest
         org.springframework.security.access.prepost.PreAuthorize versions = TaskController.class
             .getMethod("versions", String.class, String.class)
             .getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class);
+        org.springframework.security.access.prepost.PreAuthorize updateStatus = TaskController.class
+            .getMethod("updateStatus", String.class, String.class, TaskStatusUpdateRequest.class)
+            .getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class);
         assertNotNull(list);
         assertNotNull(options);
         assertNotNull(create);
         assertNotNull(detail);
         assertNotNull(versions);
+        assertNotNull(updateStatus);
         assertEquals("@ss.hasPermi('project:task:list')", list.value());
         assertEquals("@ss.hasPermi('project:task:list')", detail.value());
         assertEquals("@ss.hasPermi('project:task:list')", versions.value());
+        assertEquals("@ss.hasPermi('project:task:status')", updateStatus.value());
         assertEquals("@ss.hasPermi('project:task:add')", options.value());
         assertEquals("@ss.hasPermi('project:task:add')", create.value());
     }
@@ -137,7 +143,37 @@ class TaskControllerTest
         setCurrentUser(23L);
         assertEquals(404, controller.detail("bad", "8").getStatusCode().value());
         assertEquals(404, controller.versions("41", "bad").getStatusCode().value());
+        assertEquals(404, controller.updateStatus("41", "bad", statusRequest()).getStatusCode().value());
         org.mockito.Mockito.verifyNoInteractions(taskService);
+    }
+
+    @Test
+    void memberCanUpdateTaskStatus()
+    {
+        setCurrentUser(23L);
+        Task task = new Task();
+        task.setTaskId(8L);
+        task.setStatus("doing");
+        when(taskService.updateTaskStatus(41L, 8L, 23L, "doing")).thenReturn(task);
+
+        ResponseEntity<AjaxResult> response = controller.updateStatus("41", "8", statusRequest());
+
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals(8L, ((com.ruoyi.web.domain.project.TaskView) response.getBody().get("data")).getTaskId());
+        verify(taskService).updateTaskStatus(41L, 8L, 23L, "doing");
+    }
+
+    @Test
+    void statusUpdateServiceErrorsUseBusinessStatus()
+    {
+        setCurrentUser(23L);
+        doThrow(new ServiceException("归档项目不能开展新的业务操作", HttpStatus.BAD_REQUEST))
+            .when(taskService).updateTaskStatus(41L, 8L, 23L, "doing");
+
+        ResponseEntity<AjaxResult> response = controller.updateStatus("41", "8", statusRequest());
+
+        assertEquals(400, response.getStatusCode().value());
+        assertEquals(HttpStatus.BAD_REQUEST, response.getBody().get("code"));
     }
 
     @Test
@@ -222,6 +258,13 @@ class TaskControllerTest
         request.setStatus("todo");
         request.setCategoryValues(List.of("dev"));
         request.setOwnerIds(List.of(23L));
+        return request;
+    }
+
+    private TaskStatusUpdateRequest statusRequest()
+    {
+        TaskStatusUpdateRequest request = new TaskStatusUpdateRequest();
+        request.setStatus("doing");
         return request;
     }
 

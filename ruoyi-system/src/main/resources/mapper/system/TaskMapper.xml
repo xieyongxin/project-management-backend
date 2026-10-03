@@ -56,6 +56,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
              #{createTime}, #{updateTime})
     </insert>
 
+    <update id="updateTaskStatus">
+        update pm_task
+        set status = #{status}, update_time = CURRENT_TIMESTAMP
+        where project_id = #{projectId}
+          and task_id = #{taskId}
+          and is_deleted = 0
+    </update>
+
     <insert id="insertTaskVersion" parameterType="TaskVersion" useGeneratedKeys="true" keyProperty="versionId">
         insert into pm_task_version
             (task_id, version_no, title, description, requirement_version_id, created_by, create_time)

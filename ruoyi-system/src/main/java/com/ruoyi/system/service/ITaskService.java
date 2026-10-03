@@ -10,6 +10,8 @@ public interface ITaskService
     Task createTask(Long projectId, Long creatorId, Long requirementId, String title, String description,
         String status, List<String> categoryValues, List<Long> ownerIds);
 
+    Task updateTaskStatus(Long projectId, Long taskId, Long operatorId, String status);
+
     List<Task> selectTasksForUser(Long projectId, Long userId);
 
     Task selectTaskForUser(Long projectId, Long taskId, Long userId);

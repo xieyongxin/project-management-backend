@@ -165,6 +165,59 @@ public class TaskServiceImpl implements ITaskService
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Task updateTaskStatus(Long projectId, Long taskId, Long operatorId, String status)
+    {
+        Project project = projectId == null || operatorId == null
+            ? null : projectMapper.selectProjectForUser(projectId, operatorId);
+        if (project == null)
+        {
+            throw new ServiceException("项目不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        if (Project.STATUS_ARCHIVED.equals(project.getStatus()))
+        {
+            throw new ServiceException("归档项目不能开展新的业务操作", HttpStatus.BAD_REQUEST);
+        }
+        if (taskId == null)
+        {
+            throw new ServiceException("任务不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+
+        String normalizedStatus = status == null ? "" : status.trim();
+        SysDictData statusData = findActiveValue(taskMapper.selectActiveTaskStatuses(), normalizedStatus);
+        if (statusData == null)
+        {
+            throw new ServiceException("任务状态不存在或已停用", HttpStatus.BAD_REQUEST);
+        }
+
+        Task current = taskMapper.selectTaskForUser(projectId, taskId, operatorId);
+        if (current == null)
+        {
+            throw new ServiceException("任务不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        if (normalizedStatus.equals(current.getStatus()))
+        {
+            return enrichTask(current);
+        }
+        if (taskMapper.updateTaskStatus(projectId, taskId, normalizedStatus) != 1)
+        {
+            throw new ServiceException("更新任务状态失败");
+        }
+
+        ProjectOperationLog log = new ProjectOperationLog();
+        log.setProjectId(projectId);
+        log.setOperatorId(operatorId);
+        log.setOperationType("TASK_STATUS_UPDATE");
+        log.setDetail("更新任务状态：" + current.getStatus() + " -> " + normalizedStatus);
+        log.setCreateTime(new Date());
+        if (projectOperationLogMapper.insertProjectOperationLog(log) != 1)
+        {
+            throw new ServiceException("记录项目操作日志失败");
+        }
+        return selectTaskForUserInternal(projectId, taskId, operatorId);
+    }
+
+    @Override
     public List<Task> selectTasksForUser(Long projectId, Long userId)
     {
         if (projectId == null || userId == null)

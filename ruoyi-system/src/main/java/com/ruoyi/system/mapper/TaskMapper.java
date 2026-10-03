@@ -12,6 +12,9 @@ public interface TaskMapper
 {
     int insertTask(Task task);
 
+    int updateTaskStatus(@Param("projectId") Long projectId, @Param("taskId") Long taskId,
+        @Param("status") String status);
+
     int insertTaskVersion(TaskVersion version);
 
     int updateCurrentVersion(@Param("taskId") Long taskId, @Param("versionId") Long versionId);

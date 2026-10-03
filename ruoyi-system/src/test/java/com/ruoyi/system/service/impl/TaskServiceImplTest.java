@@ -217,6 +217,82 @@ class TaskServiceImplTest
         assertNull(SERVICE.selectTaskVersionsForUser(41L, 999L, 21L));
     }
 
+    @Test
+    void memberCanChangeTaskStatusToAnyActiveValueWithoutCreatingVersion()
+    {
+        TASK_MAPPER.addStatus("doing", "进行中");
+        TASK_MAPPER.addStatus("done", "已完成");
+        Task created = SERVICE.createTask(41L, 21L, 7L, "Title", "Description", "todo",
+            List.of("dev"), List.of(21L));
+        int versionsBefore = count("pm_task_version");
+
+        Task doing = SERVICE.updateTaskStatus(41L, created.getTaskId(), 21L, " doing ");
+        Task done = SERVICE.updateTaskStatus(41L, created.getTaskId(), 21L, "done");
+
+        assertEquals("doing", doing.getStatus());
+        assertEquals("进行中", doing.getStatusLabel());
+        assertEquals("done", done.getStatus());
+        assertEquals("TASK_STATUS_UPDATE", LOG_MAPPER.logs.get(1).getOperationType());
+        assertEquals("TASK_STATUS_UPDATE", LOG_MAPPER.logs.get(2).getOperationType());
+        assertEquals(versionsBefore, count("pm_task_version"));
+    }
+
+    @Test
+    void unchangedTaskStatusDoesNotWriteLogOrVersion()
+    {
+        Task created = SERVICE.createTask(41L, 21L, 7L, "Title", "Description", "todo",
+            List.of("dev"), List.of(21L));
+        int versionsBefore = count("pm_task_version");
+        int logsBefore = LOG_MAPPER.logs.size();
+
+        Task unchanged = SERVICE.updateTaskStatus(41L, created.getTaskId(), 21L, "todo");
+
+        assertEquals("todo", unchanged.getStatus());
+        assertEquals(logsBefore, LOG_MAPPER.logs.size());
+        assertEquals(versionsBefore, count("pm_task_version"));
+    }
+
+    @Test
+    void taskStatusUpdateEnforcesMembershipTaskArchiveAndActiveStatus()
+    {
+        TASK_MAPPER.addInactiveStatus("paused", "已停用");
+        Task created = SERVICE.createTask(41L, 21L, 7L, "Title", "Description", "todo",
+            List.of("dev"), List.of(21L));
+
+        ServiceException nonMember = assertThrows(ServiceException.class,
+            () -> SERVICE.updateTaskStatus(41L, created.getTaskId(), 22L, "todo"));
+        ServiceException missingTask = assertThrows(ServiceException.class,
+            () -> SERVICE.updateTaskStatus(41L, 999L, 21L, "todo"));
+        ServiceException archived = assertThrows(ServiceException.class,
+            () -> SERVICE.updateTaskStatus(41L, created.getTaskId(), 99L, "todo"));
+        ServiceException invalid = assertThrows(ServiceException.class,
+            () -> SERVICE.updateTaskStatus(41L, created.getTaskId(), 21L, "missing"));
+        ServiceException inactive = assertThrows(ServiceException.class,
+            () -> SERVICE.updateTaskStatus(41L, created.getTaskId(), 21L, "paused"));
+
+        assertEquals(HttpStatus.NOT_FOUND, nonMember.getCode());
+        assertEquals(HttpStatus.NOT_FOUND, missingTask.getCode());
+        assertEquals(HttpStatus.BAD_REQUEST, archived.getCode());
+        assertEquals(HttpStatus.BAD_REQUEST, invalid.getCode());
+        assertEquals(HttpStatus.BAD_REQUEST, inactive.getCode());
+    }
+
+    @Test
+    void taskStatusAndLogRollBackTogetherWhenLogFails()
+    {
+        TASK_MAPPER.addStatus("doing", "进行中");
+        Task created = SERVICE.createTask(41L, 21L, 7L, "Title", "Description", "todo",
+            List.of("dev"), List.of(21L));
+        LOG_MAPPER.failNextInsert.set(true);
+
+        assertThrows(IllegalStateException.class,
+            () -> SERVICE.updateTaskStatus(41L, created.getTaskId(), 21L, "doing"));
+
+        assertEquals("todo", JDBC.queryForObject("select status from pm_task where task_id = ?", String.class,
+            created.getTaskId()));
+        assertEquals(1, LOG_MAPPER.logs.size());
+    }
+
     private Project project(String status)
     {
         Project project = new Project();
@@ -368,6 +444,13 @@ class TaskServiceImplTest
             statuses.put(value, dict("pm_task_status", value, label));
         }
 
+        void addInactiveStatus(String value, String label)
+        {
+            SysDictData data = dict("pm_task_status", value, label);
+            data.setStatus("1");
+            statuses.put(value, data);
+        }
+
         void addCategory(String value, String label)
         {
             categories.put(value, dict("pm_task_category", value, label));
@@ -404,6 +487,13 @@ class TaskServiceImplTest
             }, keyHolder);
             task.setTaskId(keyHolder.getKey().longValue());
             return rows;
+        }
+
+        @Override
+        public int updateTaskStatus(Long projectId, Long taskId, String status)
+        {
+            return jdbc.update("update pm_task set status = ?, update_time = CURRENT_TIMESTAMP "
+                + "where project_id = ? and task_id = ? and is_deleted = 0", status, projectId, taskId);
         }
 
         @Override
@@ -537,8 +627,14 @@ class TaskServiceImplTest
                 }, taskId);
         }
 
-        @Override public List<SysDictData> selectActiveTaskStatuses() { return new ArrayList<>(statuses.values()); }
-        @Override public List<SysDictData> selectActiveTaskCategories() { return new ArrayList<>(categories.values()); }
+        @Override public List<SysDictData> selectActiveTaskStatuses()
+        {
+            return statuses.values().stream().filter(item -> "0".equals(item.getStatus())).toList();
+        }
+        @Override public List<SysDictData> selectActiveTaskCategories()
+        {
+            return categories.values().stream().filter(item -> "0".equals(item.getStatus())).toList();
+        }
     }
 
     static class TestLogMapper implements ProjectOperationLogMapper

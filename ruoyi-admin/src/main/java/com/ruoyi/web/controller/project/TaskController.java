@@ -8,6 +8,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,6 +22,7 @@ import com.ruoyi.system.domain.Task;
 import com.ruoyi.system.domain.TaskVersion;
 import com.ruoyi.system.service.ITaskService;
 import com.ruoyi.web.domain.project.TaskCreateRequest;
+import com.ruoyi.web.domain.project.TaskStatusUpdateRequest;
 import com.ruoyi.web.domain.project.TaskView;
 import com.ruoyi.web.domain.project.TaskVersionView;
 
@@ -90,6 +92,28 @@ public class TaskController extends BaseController
             return notFound();
         }
         return ResponseEntity.ok(success(versions.stream().map(TaskVersionView::from).toList()));
+    }
+
+    @PreAuthorize("@ss.hasPermi('project:task:status')")
+    @PutMapping("/{taskId}/status")
+    public ResponseEntity<AjaxResult> updateStatus(@PathVariable String projectId, @PathVariable String taskId,
+        @Validated @RequestBody TaskStatusUpdateRequest request)
+    {
+        Long parsedProjectId = parseId(projectId);
+        Long parsedTaskId = parseId(taskId);
+        if (parsedProjectId == null || parsedTaskId == null)
+        {
+            return notFound();
+        }
+        try
+        {
+            Task task = taskService.updateTaskStatus(parsedProjectId, parsedTaskId, getUserId(), request.getStatus());
+            return ResponseEntity.ok(success(TaskView.from(task)));
+        }
+        catch (ServiceException e)
+        {
+            return serviceError(e);
+        }
     }
 
     @PreAuthorize("@ss.hasPermi('project:task:add')")
