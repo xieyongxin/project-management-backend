@@ -110,6 +110,7 @@ class TaskMapperXmlTest
             assertEquals(1, selected.getCurrentVersionNo());
             assertEquals(3, selected.getRequirementVersionNo());
             assertEquals(0, selected.getRequirementVersionOutdated());
+            assertEquals("待处理", selected.getStatusLabel());
             List<TaskVersion> versions = mapper.selectTaskVersionsForUser(41L, task.getTaskId(), 21L);
             assertEquals(1, versions.size());
             assertEquals(1, versions.get(0).getVersionNo());
@@ -137,6 +138,13 @@ class TaskMapperXmlTest
             }
             session.clearCache();
             assertEquals(1, mapper.selectTaskForUser(41L, task.getTaskId(), 21L).getRequirementVersionOutdated());
+            try (java.sql.PreparedStatement statement = session.getConnection().prepareStatement(
+                "update sys_dict_data set status = '1' where dict_code = 101"))
+            {
+                statement.executeUpdate();
+            }
+            session.clearCache();
+            assertEquals("待处理", mapper.selectTaskForUser(41L, task.getTaskId(), 21L).getStatusLabel());
             assertEquals(1, mapper.updateTaskStatus(41L, task.getTaskId(), "done"));
             session.commit();
             assertEquals("done", jdbc.queryForObject("select status from pm_task where task_id = ?", String.class,

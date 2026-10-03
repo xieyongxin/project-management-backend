@@ -103,7 +103,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
           on requirement_record.requirement_id = t.requirement_id
          and requirement_record.project_id = t.project_id
         left join sys_dict_data d on d.dict_type = 'pm_task_status'
-            and d.dict_value = t.status and d.status = '0'
+            and d.dict_value = t.status
         where t.is_deleted = 0
     </sql>
 
