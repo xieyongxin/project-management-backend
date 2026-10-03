@@ -104,7 +104,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </select>
 
     <select id="selectRequirementOwners" resultType="RequirementOwner">
-        select o.requirement_id, o.user_id, u.user_name, u.nick_name, u.email
+        select o.requirement_id as requirementId, o.user_id as userId,
+               u.user_name as userName, u.nick_name as nickName, u.email as email
         from pm_requirement_owner o
         inner join sys_user u on u.user_id = o.user_id
         where o.requirement_id = #{requirementId}
@@ -112,7 +113,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </select>
 
     <select id="selectProjectMembersByIds" resultType="RequirementOwner">
-        select m.user_id, u.user_name, u.nick_name, u.email
+        select m.user_id as userId, u.user_name as userName,
+               u.nick_name as nickName, u.email as email
         from pm_project_member m
         inner join sys_user u on u.user_id = m.user_id
         where m.project_id = #{projectId}

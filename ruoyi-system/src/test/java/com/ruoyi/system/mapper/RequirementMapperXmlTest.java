@@ -120,7 +120,12 @@ class RequirementMapperXmlTest
             assertEquals(List.of(1, 2), mapper.selectRequirementVersionsForUser(41L,
                 requirement.getRequirementId(), 21L).stream().map(RequirementVersion::getVersionNo).toList());
             assertEquals(0, mapper.selectRequirementVersionsForUser(41L, requirement.getRequirementId(), 99L).size());
-            assertEquals(2, mapper.selectRequirementOwners(requirement.getRequirementId()).size());
+            List<RequirementOwner> owners = mapper.selectRequirementOwners(requirement.getRequirementId());
+            assertEquals(2, owners.size());
+            assertEquals(21L, owners.get(0).getUserId());
+            assertEquals("alice", owners.get(0).getUserName());
+            assertEquals("Alice", owners.get(0).getNickName());
+            assertEquals("alice@example.com", owners.get(0).getEmail());
             assertEquals(2, mapper.selectProjectMembersByIds(41L, List.of(21L, 23L)).size());
             assertEquals(1, mapper.selectRequirementsForUser(41L, 21L).size());
             assertEquals(0, mapper.selectRequirementsForUser(41L, 99L).size());

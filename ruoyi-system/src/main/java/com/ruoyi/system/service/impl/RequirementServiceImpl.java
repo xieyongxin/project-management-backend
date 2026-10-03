@@ -139,11 +139,15 @@ public class RequirementServiceImpl implements IRequirementService
     @Override
     public List<Requirement> selectRequirementsForUser(Long projectId, Long userId)
     {
-        if (projectId == null || userId == null || projectMapper.selectProjectForUser(projectId, userId) == null)
+        if (projectId == null || userId == null)
         {
             return null;
         }
         List<Requirement> requirements = requirementMapper.selectRequirementsForUser(projectId, userId);
+        if (projectMapper.selectProjectForUser(projectId, userId) == null)
+        {
+            return null;
+        }
         if (requirements != null)
         {
             requirements.forEach(requirement -> requirement.setOwners(
