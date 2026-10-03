@@ -35,6 +35,7 @@ import com.ruoyi.system.domain.RequirementOwner;
 import com.ruoyi.system.domain.RequirementVersion;
 import com.ruoyi.system.service.IRequirementService;
 import com.ruoyi.web.domain.project.RequirementCreateRequest;
+import com.ruoyi.web.domain.project.RequirementContentUpdateRequest;
 import com.ruoyi.web.domain.project.RequirementStatusUpdateRequest;
 import com.ruoyi.web.domain.project.RequirementView;
 
@@ -81,6 +82,11 @@ class RequirementControllerTest
             .getAnnotation(PreAuthorize.class);
         assertNotNull(updateStatus);
         assertEquals("@ss.hasPermi('project:requirement:status')", updateStatus.value());
+        PreAuthorize updateContent = RequirementController.class
+            .getMethod("updateContent", String.class, String.class, RequirementContentUpdateRequest.class)
+            .getAnnotation(PreAuthorize.class);
+        assertNotNull(updateContent);
+        assertEquals("@ss.hasPermi('project:requirement:edit')", updateContent.value());
     }
 
     @Test
@@ -203,6 +209,7 @@ class RequirementControllerTest
         assertEquals(404, controller.versions("41", "bad").getStatusCode().value());
         assertEquals(404, controller.compareVersions("41", "8", "bad", "19").getStatusCode().value());
         assertEquals(404, controller.updateStatus("41", "bad", statusRequest()).getStatusCode().value());
+        assertEquals(404, controller.updateContent("41", "bad", contentRequest()).getStatusCode().value());
         verifyNoInteractions(requirementService);
     }
 
@@ -220,6 +227,29 @@ class RequirementControllerTest
         assertEquals(200, response.getStatusCode().value());
         assertEquals(8L, ((RequirementView) response.getBody().get("data")).getRequirementId());
         verify(requirementService).updateRequirementStatus(41L, 8L, 23L, "doing");
+    }
+
+    @Test
+    void memberCanUpdateRequirementContentAndServiceErrorsPropagate()
+    {
+        setCurrentUser(23L, Set.of("project:requirement:edit"));
+        Requirement requirement = new Requirement();
+        requirement.setRequirementId(8L);
+        requirement.setTitle("新标题");
+        when(requirementService.updateRequirementContent(41L, 8L, 23L, "新标题", "<p>新正文</p>"))
+            .thenReturn(requirement);
+
+        ResponseEntity<AjaxResult> response = controller.updateContent("41", "8", contentRequest());
+
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals(8L, ((RequirementView) response.getBody().get("data")).getRequirementId());
+        verify(requirementService).updateRequirementContent(41L, 8L, 23L, "新标题", "<p>新正文</p>");
+
+        doThrow(new ServiceException("归档项目不能开展新的业务操作", HttpStatus.BAD_REQUEST))
+            .when(requirementService).updateRequirementContent(41L, 8L, 23L, "新标题", "<p>新正文</p>");
+        ResponseEntity<AjaxResult> error = controller.updateContent("41", "8", contentRequest());
+        assertEquals(400, error.getStatusCode().value());
+        assertEquals(HttpStatus.BAD_REQUEST, error.getBody().get("code"));
     }
 
     @Test
@@ -314,6 +344,14 @@ class RequirementControllerTest
     {
         RequirementStatusUpdateRequest request = new RequirementStatusUpdateRequest();
         request.setStatus("doing");
+        return request;
+    }
+
+    private RequirementContentUpdateRequest contentRequest()
+    {
+        RequirementContentUpdateRequest request = new RequirementContentUpdateRequest();
+        request.setTitle("新标题");
+        request.setContent("<p>新正文</p>");
         return request;
     }
 

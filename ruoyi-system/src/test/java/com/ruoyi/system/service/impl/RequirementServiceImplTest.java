@@ -250,6 +250,64 @@ class RequirementServiceImplTest
     }
 
     @Test
+    void memberCanEditRequirementContentAndOnlyChangedContentCreatesVersion()
+    {
+        Requirement created = SERVICE.createRequirement(41L, 21L, "旧标题", "旧正文", "todo", List.of(21L));
+        int logsBefore = LOG_MAPPER.logs.size();
+
+        Requirement updated = SERVICE.updateRequirementContent(41L, created.getRequirementId(), 21L,
+            " 新标题 ", " <p>新正文</p> ");
+
+        assertEquals("新标题", updated.getTitle());
+        assertEquals("<p>新正文</p>", updated.getContent());
+        assertEquals(2, updated.getCurrentVersionNo());
+        assertEquals(2, count("pm_requirement_version"));
+        assertEquals(logsBefore + 1, LOG_MAPPER.logs.size());
+        assertEquals("REQUIREMENT_CONTENT_UPDATE", LOG_MAPPER.logs.get(logsBefore).getOperationType());
+        assertEquals("更新需求内容：v1 -> v2", LOG_MAPPER.logs.get(logsBefore).getDetail());
+
+        Requirement unchanged = SERVICE.updateRequirementContent(41L, created.getRequirementId(), 21L,
+            " 新标题 ", " <p>新正文</p> ");
+
+        assertEquals(2, unchanged.getCurrentVersionNo());
+        assertEquals(2, count("pm_requirement_version"));
+        assertEquals(logsBefore + 1, LOG_MAPPER.logs.size());
+    }
+
+    @Test
+    void requirementContentUpdateEnforcesMembershipAndArchive()
+    {
+        Requirement created = SERVICE.createRequirement(41L, 21L, "标题", "正文", "todo", List.of(21L));
+
+        ServiceException nonMember = assertThrows(ServiceException.class,
+            () -> SERVICE.updateRequirementContent(41L, created.getRequirementId(), 22L, "新标题", "新正文"));
+        ServiceException archived = assertThrows(ServiceException.class,
+            () -> SERVICE.updateRequirementContent(41L, created.getRequirementId(), 99L, "新标题", "新正文"));
+
+        assertEquals(HttpStatus.NOT_FOUND, nonMember.getCode());
+        assertEquals(HttpStatus.BAD_REQUEST, archived.getCode());
+        assertEquals(1, count("pm_requirement_version"));
+    }
+
+    @Test
+    void requirementContentUpdateRollsBackWhenLogCannotBeWritten()
+    {
+        Requirement created = SERVICE.createRequirement(41L, 21L, "标题", "正文", "todo", List.of(21L));
+        Long originalVersionId = created.getCurrentVersionId();
+        LOG_MAPPER.failNextInsert.set(true);
+
+        assertThrows(IllegalStateException.class,
+            () -> SERVICE.updateRequirementContent(41L, created.getRequirementId(), 21L, "新标题", "新正文"));
+
+        assertEquals(1, count("pm_requirement_version"));
+        Requirement selected = SERVICE.selectRequirementForUser(41L, created.getRequirementId(), 21L);
+        assertEquals(originalVersionId, selected.getCurrentVersionId());
+        assertEquals("标题", selected.getTitle());
+        assertEquals("正文", selected.getContent());
+        assertEquals(1, LOG_MAPPER.logs.size());
+    }
+
+    @Test
     void requirementStatusLogKeepsLabelForPreviouslyDisabledStatus()
     {
         Requirement created = SERVICE.createRequirement(41L, 21L, "Title", "Body", "todo", List.of(21L));

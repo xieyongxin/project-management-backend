@@ -12,6 +12,9 @@ public interface IRequirementService
 
     Requirement updateRequirementStatus(Long projectId, Long requirementId, Long operatorId, String status);
 
+    Requirement updateRequirementContent(Long projectId, Long requirementId, Long operatorId,
+        String title, String content);
+
     List<Requirement> selectRequirementsForUser(Long projectId, Long userId);
 
     Requirement selectRequirementForUser(Long projectId, Long requirementId, Long userId);

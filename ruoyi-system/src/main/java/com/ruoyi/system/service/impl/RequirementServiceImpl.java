@@ -191,6 +191,85 @@ public class RequirementServiceImpl implements IRequirementService
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Requirement updateRequirementContent(Long projectId, Long requirementId, Long operatorId,
+        String title, String content)
+    {
+        Project project = projectId == null || operatorId == null
+            ? null : projectMapper.selectProjectForUser(projectId, operatorId);
+        if (project == null)
+        {
+            throw new ServiceException("项目不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        if (Project.STATUS_ARCHIVED.equals(project.getStatus()))
+        {
+            throw new ServiceException("归档项目不能开展新的业务操作", HttpStatus.BAD_REQUEST);
+        }
+        if (requirementId == null)
+        {
+            throw new ServiceException("需求不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+
+        String normalizedTitle = title == null ? "" : title.trim();
+        if (normalizedTitle.isEmpty())
+        {
+            throw new ServiceException("需求标题不能为空", HttpStatus.BAD_REQUEST);
+        }
+        if (normalizedTitle.length() > 255)
+        {
+            throw new ServiceException("需求标题长度不能超过255个字符", HttpStatus.BAD_REQUEST);
+        }
+        String normalizedContent = content == null ? "" : content.trim();
+        if (!hasContent(normalizedContent))
+        {
+            throw new ServiceException("需求正文不能为空", HttpStatus.BAD_REQUEST);
+        }
+
+        Requirement current = selectRequirementForUserInternal(projectId, requirementId, operatorId);
+        if (current == null)
+        {
+            throw new ServiceException("需求不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        if (normalizedTitle.equals(current.getTitle()) && normalizedContent.equals(current.getContent()))
+        {
+            return current;
+        }
+
+        List<RequirementVersion> versions = requirementMapper.selectRequirementVersionsForUser(
+            projectId, requirementId, operatorId);
+        RequirementVersion currentVersion = versions == null ? null : versions.stream()
+            .filter(version -> current.getCurrentVersionId() != null
+                && current.getCurrentVersionId().equals(version.getVersionId()))
+            .findFirst().orElse(null);
+        RequirementVersion nextVersion = new RequirementVersion();
+        nextVersion.setRequirementId(requirementId);
+        nextVersion.setVersionNo((current.getCurrentVersionNo() == null ? 0 : current.getCurrentVersionNo()) + 1);
+        nextVersion.setTitle(normalizedTitle);
+        nextVersion.setContent(normalizedContent);
+        nextVersion.setAttachmentSnapshot(currentVersion == null || currentVersion.getAttachmentSnapshot() == null
+            ? "[]" : currentVersion.getAttachmentSnapshot());
+        nextVersion.setCreatedBy(operatorId);
+        nextVersion.setCreateTime(new Date());
+        if (requirementMapper.insertRequirementVersion(nextVersion) != 1
+            || requirementMapper.updateCurrentVersion(requirementId, nextVersion.getVersionId()) != 1)
+        {
+            throw new ServiceException("更新需求内容失败");
+        }
+
+        ProjectOperationLog log = new ProjectOperationLog();
+        log.setProjectId(projectId);
+        log.setOperatorId(operatorId);
+        log.setOperationType("REQUIREMENT_CONTENT_UPDATE");
+        log.setDetail("更新需求内容：v" + current.getCurrentVersionNo() + " -> v" + nextVersion.getVersionNo());
+        log.setCreateTime(new Date());
+        if (projectOperationLogMapper.insertProjectOperationLog(log) != 1)
+        {
+            throw new ServiceException("记录项目操作日志失败");
+        }
+        return selectRequirementForUserInternal(projectId, requirementId, operatorId);
+    }
+
+    @Override
     public List<Requirement> selectRequirementsForUser(Long projectId, Long userId)
     {
         if (projectId == null || userId == null)
