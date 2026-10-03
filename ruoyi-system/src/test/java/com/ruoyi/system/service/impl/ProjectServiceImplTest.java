@@ -552,6 +552,23 @@ class ProjectServiceImplTest
     }
 
     @Test
+    void projectMemberRemovalRejectsCurrentTaskOwner()
+    {
+        Project project = SERVICE.createProject("Task owner removal project", 21L);
+        addMember(project, 22L, 7L, 0);
+        JDBC.update("insert into pm_task (project_id, is_deleted) values (?, 0)", project.getProjectId());
+        Long taskId = JDBC.queryForObject("select max(task_id) from pm_task", Long.class);
+        JDBC.update("insert into pm_task_owner (task_id, user_id) values (?, ?)", taskId, 22L);
+
+        ServiceException error = assertThrows(ServiceException.class,
+            () -> SERVICE.removeProjectMember(project.getProjectId(), 21L, 22L));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getCode());
+        assertNotNull(MEMBER_MAPPER.selectProjectMember(project.getProjectId(), 22L));
+        assertEquals(0, LOG_MAPPER.logs.size());
+    }
+
+    @Test
     void projectMemberCanQueryOnlyTheirProjectLogs()
     {
         Project project = SERVICE.createProject("Log query project", 21L);

@@ -302,6 +302,20 @@ class ProjectControllerTest
     }
 
     @Test
+    void memberRemovalPropagatesOwnerReferenceStatus()
+    {
+        setCurrentUser(23L);
+        doThrow(new ServiceException("该成员仍是任务负责人，不能移除", HttpStatus.BAD_REQUEST))
+            .when(projectService).removeProjectMember(41L, 23L, 24L);
+
+        ResponseEntity<AjaxResult> response = controller.removeMember("41", "24");
+
+        assertEquals(400, response.getStatusCode().value());
+        assertEquals(HttpStatus.BAD_REQUEST, response.getBody().get("code"));
+        assertEquals("该成员仍是任务负责人，不能移除", response.getBody().get("msg"));
+    }
+
+    @Test
     void projectAdminCanUpdateProjectArchiveStatus()
     {
         setCurrentUser(23L);
