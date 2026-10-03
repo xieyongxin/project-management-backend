@@ -13,6 +13,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="currentVersionNo" column="task_version_no" />
         <result property="requirementVersionId" column="requirement_version_id" />
         <result property="requirementVersionNo" column="requirement_version_no" />
+        <result property="requirementVersionOutdated" column="requirement_version_outdated" />
         <result property="title" column="title" />
         <result property="description" column="description" />
         <result property="status" column="status" />
@@ -91,10 +92,16 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         select t.task_id, t.project_id, t.requirement_id, t.creator_id, t.current_version_id,
                tv.version_no as task_version_no, tv.title, tv.description,
                tv.requirement_version_id, rv.version_no as requirement_version_no,
+               case when requirement_record.current_version_id is not null
+                         and requirement_record.current_version_id &lt;&gt; tv.requirement_version_id
+                    then 1 else 0 end as requirement_version_outdated,
                t.status, d.dict_label as status_label, t.is_deleted, t.create_time, t.update_time
         from pm_task t
         inner join pm_task_version tv on tv.version_id = t.current_version_id
         inner join pm_requirement_version rv on rv.version_id = tv.requirement_version_id
+        left join pm_requirement requirement_record
+          on requirement_record.requirement_id = t.requirement_id
+         and requirement_record.project_id = t.project_id
         left join sys_dict_data d on d.dict_type = 'pm_task_status'
             and d.dict_value = t.status and d.status = '0'
         where t.is_deleted = 0

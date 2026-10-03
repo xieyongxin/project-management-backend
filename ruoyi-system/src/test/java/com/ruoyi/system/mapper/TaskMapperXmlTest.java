@@ -45,6 +45,7 @@ class TaskMapperXmlTest
             + "is_default varchar(1), status varchar(1), create_by varchar(64), create_time timestamp, update_by varchar(64), "
             + "update_time timestamp, remark varchar(500))");
         jdbc.execute("create table pm_requirement_version (version_id bigint primary key, requirement_id bigint, version_no integer)");
+        jdbc.execute("create table pm_requirement (requirement_id bigint primary key, project_id bigint, current_version_id bigint, is_deleted integer)");
         jdbc.execute("create table pm_task (task_id bigint auto_increment primary key, project_id bigint, requirement_id bigint, "
             + "creator_id bigint, current_version_id bigint, status varchar(100), is_deleted integer, create_time timestamp, update_time timestamp)");
         jdbc.execute("create table pm_task_version (version_id bigint auto_increment primary key, task_id bigint, version_no integer, "
@@ -72,6 +73,7 @@ class TaskMapperXmlTest
         jdbc.update("insert into sys_user values (23, 'carol', 'Carol', 'carol@example.com')");
         jdbc.update("insert into pm_project_member values (41, 23)");
         jdbc.update("insert into pm_requirement_version values (501, 7, 3)");
+        jdbc.update("insert into pm_requirement values (7, 41, 501, 0)");
         jdbc.update("insert into sys_dict_data values (101, 1, '待处理', 'todo', 'pm_task_status', '', '', 'Y', '0', 'admin', ?, null, null, '')", now);
         jdbc.update("insert into sys_dict_data values (102, 1, '开发', 'dev', 'pm_task_category', '', '', 'Y', '0', 'admin', ?, null, null, '')", now);
 
@@ -107,6 +109,7 @@ class TaskMapperXmlTest
             assertEquals("登录", selected.getTitle());
             assertEquals(1, selected.getCurrentVersionNo());
             assertEquals(3, selected.getRequirementVersionNo());
+            assertEquals(0, selected.getRequirementVersionOutdated());
             List<TaskVersion> versions = mapper.selectTaskVersionsForUser(41L, task.getTaskId(), 21L);
             assertEquals(1, versions.size());
             assertEquals(1, versions.get(0).getVersionNo());
@@ -122,6 +125,18 @@ class TaskMapperXmlTest
             assertEquals(0, mapper.selectTaskVersionsForUser(41L, task.getTaskId(), 99L).size());
             assertEquals(1, mapper.selectTasksForUser(41L, 21L).size());
             assertEquals(0, mapper.selectTasksForUser(41L, 99L).size());
+            try (java.sql.PreparedStatement statement = session.getConnection().prepareStatement(
+                "insert into pm_requirement_version (version_id, requirement_id, version_no) values (502, 7, 4)"))
+            {
+                statement.executeUpdate();
+            }
+            try (java.sql.PreparedStatement statement = session.getConnection().prepareStatement(
+                "update pm_requirement set current_version_id = 502 where requirement_id = 7"))
+            {
+                statement.executeUpdate();
+            }
+            session.clearCache();
+            assertEquals(1, mapper.selectTaskForUser(41L, task.getTaskId(), 21L).getRequirementVersionOutdated());
             assertEquals(1, mapper.updateTaskStatus(41L, task.getTaskId(), "done"));
             session.commit();
             assertEquals("done", jdbc.queryForObject("select status from pm_task where task_id = ?", String.class,

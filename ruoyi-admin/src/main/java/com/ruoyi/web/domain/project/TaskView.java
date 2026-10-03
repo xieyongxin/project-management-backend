@@ -12,6 +12,7 @@ public class TaskView
     private Integer currentVersionNo;
     private Long requirementVersionId;
     private Integer requirementVersionNo;
+    private Integer requirementVersionOutdated;
     private String title;
     private String description;
     private String status;
@@ -31,6 +32,7 @@ public class TaskView
         view.setCurrentVersionNo(task.getCurrentVersionNo());
         view.setRequirementVersionId(task.getRequirementVersionId());
         view.setRequirementVersionNo(task.getRequirementVersionNo());
+        view.setRequirementVersionOutdated(task.getRequirementVersionOutdated());
         view.setTitle(task.getTitle());
         view.setDescription(task.getDescription());
         view.setStatus(task.getStatus());
@@ -58,6 +60,8 @@ public class TaskView
     public void setRequirementVersionId(Long requirementVersionId) { this.requirementVersionId = requirementVersionId; }
     public Integer getRequirementVersionNo() { return requirementVersionNo; }
     public void setRequirementVersionNo(Integer requirementVersionNo) { this.requirementVersionNo = requirementVersionNo; }
+    public Integer getRequirementVersionOutdated() { return requirementVersionOutdated; }
+    public void setRequirementVersionOutdated(Integer requirementVersionOutdated) { this.requirementVersionOutdated = requirementVersionOutdated; }
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
     public String getDescription() { return description; }
