@@ -11,6 +11,9 @@ public interface RequirementMapper
 {
     int insertRequirement(Requirement requirement);
 
+    int updateRequirementStatus(@Param("projectId") Long projectId, @Param("requirementId") Long requirementId,
+        @Param("status") String status);
+
     int insertRequirementVersion(RequirementVersion version);
 
     int updateCurrentVersion(@Param("requirementId") Long requirementId,

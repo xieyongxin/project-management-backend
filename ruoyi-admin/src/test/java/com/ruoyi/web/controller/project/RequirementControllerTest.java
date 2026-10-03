@@ -34,6 +34,7 @@ import com.ruoyi.system.domain.RequirementOwner;
 import com.ruoyi.system.domain.RequirementVersion;
 import com.ruoyi.system.service.IRequirementService;
 import com.ruoyi.web.domain.project.RequirementCreateRequest;
+import com.ruoyi.web.domain.project.RequirementStatusUpdateRequest;
 import com.ruoyi.web.domain.project.RequirementView;
 
 class RequirementControllerTest
@@ -69,6 +70,11 @@ class RequirementControllerTest
         assertEquals("@ss.hasPermi('project:requirement:list')", detail.value());
         assertNotNull(versions);
         assertEquals("@ss.hasPermi('project:requirement:list')", versions.value());
+        PreAuthorize updateStatus = RequirementController.class
+            .getMethod("updateStatus", String.class, String.class, RequirementStatusUpdateRequest.class)
+            .getAnnotation(PreAuthorize.class);
+        assertNotNull(updateStatus);
+        assertEquals("@ss.hasPermi('project:requirement:status')", updateStatus.value());
     }
 
     @Test
@@ -156,7 +162,37 @@ class RequirementControllerTest
         setCurrentUser(23L);
         assertEquals(404, controller.detail("bad", "8").getStatusCode().value());
         assertEquals(404, controller.versions("41", "bad").getStatusCode().value());
+        assertEquals(404, controller.updateStatus("41", "bad", statusRequest()).getStatusCode().value());
         verifyNoInteractions(requirementService);
+    }
+
+    @Test
+    void memberCanUpdateRequirementStatus()
+    {
+        setCurrentUser(23L);
+        Requirement requirement = new Requirement();
+        requirement.setRequirementId(8L);
+        requirement.setStatus("doing");
+        when(requirementService.updateRequirementStatus(41L, 8L, 23L, "doing")).thenReturn(requirement);
+
+        ResponseEntity<AjaxResult> response = controller.updateStatus("41", "8", statusRequest());
+
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals(8L, ((RequirementView) response.getBody().get("data")).getRequirementId());
+        verify(requirementService).updateRequirementStatus(41L, 8L, 23L, "doing");
+    }
+
+    @Test
+    void requirementStatusUpdateServiceErrorsUseBusinessStatus()
+    {
+        setCurrentUser(23L);
+        doThrow(new ServiceException("归档项目不能开展新的业务操作", HttpStatus.BAD_REQUEST))
+            .when(requirementService).updateRequirementStatus(41L, 8L, 23L, "doing");
+
+        ResponseEntity<AjaxResult> response = controller.updateStatus("41", "8", statusRequest());
+
+        assertEquals(400, response.getStatusCode().value());
+        assertEquals(HttpStatus.BAD_REQUEST, response.getBody().get("code"));
     }
 
     @Test
@@ -218,6 +254,13 @@ class RequirementControllerTest
         request.setContent("<p>正文</p>");
         request.setStatus("todo");
         request.setOwnerIds(List.of(23L));
+        return request;
+    }
+
+    private RequirementStatusUpdateRequest statusRequest()
+    {
+        RequirementStatusUpdateRequest request = new RequirementStatusUpdateRequest();
+        request.setStatus("doing");
         return request;
     }
 

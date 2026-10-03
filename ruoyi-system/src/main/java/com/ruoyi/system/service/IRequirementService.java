@@ -10,6 +10,8 @@ public interface IRequirementService
     Requirement createRequirement(Long projectId, Long creatorId, String title, String content,
         String status, List<Long> ownerIds);
 
+    Requirement updateRequirementStatus(Long projectId, Long requirementId, Long operatorId, String status);
+
     List<Requirement> selectRequirementsForUser(Long projectId, Long userId);
 
     Requirement selectRequirementForUser(Long projectId, Long requirementId, Long userId);

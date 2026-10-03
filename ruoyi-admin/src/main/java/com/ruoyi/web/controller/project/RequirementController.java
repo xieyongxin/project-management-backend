@@ -7,6 +7,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -19,6 +20,7 @@ import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.system.domain.Requirement;
 import com.ruoyi.system.service.IRequirementService;
 import com.ruoyi.web.domain.project.RequirementCreateRequest;
+import com.ruoyi.web.domain.project.RequirementStatusUpdateRequest;
 import com.ruoyi.web.domain.project.RequirementView;
 import com.ruoyi.web.domain.project.RequirementVersionView;
 
@@ -89,6 +91,29 @@ public class RequirementController extends BaseController
             return notFound();
         }
         return ResponseEntity.ok(success(versions.stream().map(RequirementVersionView::from).toList()));
+    }
+
+    @PreAuthorize("@ss.hasPermi('project:requirement:status')")
+    @PutMapping("/{requirementId}/status")
+    public ResponseEntity<AjaxResult> updateStatus(@PathVariable String projectId, @PathVariable String requirementId,
+        @Validated @RequestBody RequirementStatusUpdateRequest request)
+    {
+        Long parsedProjectId = parseId(projectId);
+        Long parsedRequirementId = parseId(requirementId);
+        if (parsedProjectId == null || parsedRequirementId == null)
+        {
+            return notFound();
+        }
+        try
+        {
+            Requirement requirement = requirementService.updateRequirementStatus(parsedProjectId,
+                parsedRequirementId, getUserId(), request.getStatus());
+            return ResponseEntity.ok(success(RequirementView.from(requirement)));
+        }
+        catch (ServiceException e)
+        {
+            return serviceError(e);
+        }
     }
 
     @PreAuthorize("@ss.hasPermi('project:requirement:add')")

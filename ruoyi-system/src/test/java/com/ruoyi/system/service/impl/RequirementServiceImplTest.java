@@ -188,6 +188,78 @@ class RequirementServiceImplTest
         assertNull(SERVICE.selectActiveStatuses(41L, 22L));
     }
 
+    @Test
+    void memberCanChangeRequirementStatusWithoutCreatingVersion()
+    {
+        REQUIREMENT_MAPPER.addStatus("doing", "进行中");
+        REQUIREMENT_MAPPER.addStatus("done", "已完成");
+        Requirement requirement = SERVICE.createRequirement(41L, 21L, "Title", "Body", "todo", List.of(21L));
+        int versionsBefore = count("pm_requirement_version");
+
+        Requirement doing = SERVICE.updateRequirementStatus(41L, requirement.getRequirementId(), 21L, " doing ");
+        Requirement done = SERVICE.updateRequirementStatus(41L, requirement.getRequirementId(), 21L, "done");
+
+        assertEquals("doing", doing.getStatus());
+        assertEquals("进行中", doing.getStatusLabel());
+        assertEquals("done", done.getStatus());
+        assertEquals("REQUIREMENT_STATUS_UPDATE", LOG_MAPPER.logs.get(1).getOperationType());
+        assertEquals("REQUIREMENT_STATUS_UPDATE", LOG_MAPPER.logs.get(2).getOperationType());
+        assertEquals(versionsBefore, count("pm_requirement_version"));
+    }
+
+    @Test
+    void unchangedRequirementStatusDoesNotWriteLogOrVersion()
+    {
+        Requirement requirement = SERVICE.createRequirement(41L, 21L, "Title", "Body", "todo", List.of(21L));
+        int versionsBefore = count("pm_requirement_version");
+        int logsBefore = LOG_MAPPER.logs.size();
+
+        Requirement unchanged = SERVICE.updateRequirementStatus(41L, requirement.getRequirementId(), 21L, "todo");
+
+        assertEquals("todo", unchanged.getStatus());
+        assertEquals(logsBefore, LOG_MAPPER.logs.size());
+        assertEquals(versionsBefore, count("pm_requirement_version"));
+    }
+
+    @Test
+    void requirementStatusUpdateEnforcesMembershipRequirementArchiveAndActiveStatus()
+    {
+        REQUIREMENT_MAPPER.addInactiveStatus("paused", "已停用");
+        Requirement requirement = SERVICE.createRequirement(41L, 21L, "Title", "Body", "todo", List.of(21L));
+
+        ServiceException nonMember = assertThrows(ServiceException.class,
+            () -> SERVICE.updateRequirementStatus(41L, requirement.getRequirementId(), 22L, "todo"));
+        ServiceException missingRequirement = assertThrows(ServiceException.class,
+            () -> SERVICE.updateRequirementStatus(41L, 999L, 21L, "todo"));
+        ServiceException archived = assertThrows(ServiceException.class,
+            () -> SERVICE.updateRequirementStatus(41L, requirement.getRequirementId(), 99L, "todo"));
+        ServiceException invalid = assertThrows(ServiceException.class,
+            () -> SERVICE.updateRequirementStatus(41L, requirement.getRequirementId(), 21L, "missing"));
+        ServiceException inactive = assertThrows(ServiceException.class,
+            () -> SERVICE.updateRequirementStatus(41L, requirement.getRequirementId(), 21L, "paused"));
+
+        assertEquals(HttpStatus.NOT_FOUND, nonMember.getCode());
+        assertEquals(HttpStatus.NOT_FOUND, missingRequirement.getCode());
+        assertEquals(HttpStatus.BAD_REQUEST, archived.getCode());
+        assertEquals(HttpStatus.BAD_REQUEST, invalid.getCode());
+        assertEquals(HttpStatus.BAD_REQUEST, inactive.getCode());
+    }
+
+    @Test
+    void requirementStatusAndLogRollBackTogetherWhenLogFails()
+    {
+        REQUIREMENT_MAPPER.addStatus("doing", "进行中");
+        Requirement requirement = SERVICE.createRequirement(41L, 21L, "Title", "Body", "todo", List.of(21L));
+        LOG_MAPPER.failNextInsert.set(true);
+
+        assertThrows(IllegalStateException.class,
+            () -> SERVICE.updateRequirementStatus(41L, requirement.getRequirementId(), 21L, "doing"));
+
+        assertEquals("todo", JDBC.queryForObject("select status from pm_requirement where requirement_id = ?",
+            String.class, requirement.getRequirementId()));
+        assertEquals(1, LOG_MAPPER.logs.size());
+    }
+
     private Project project(String status)
     {
         Project project = new Project();
@@ -299,6 +371,18 @@ class RequirementServiceImplTest
         void addStatus(String value, String label)
         {
             statuses.put(value, label);
+        }
+
+        void addInactiveStatus(String value, String label)
+        {
+            statuses.put(value, null);
+        }
+
+        @Override
+        public int updateRequirementStatus(Long projectId, Long requirementId, String status)
+        {
+            return jdbc.update("update pm_requirement set status = ?, update_time = CURRENT_TIMESTAMP "
+                + "where project_id = ? and requirement_id = ? and is_deleted = 0", status, projectId, requirementId);
         }
 
         @Override
@@ -445,7 +529,7 @@ class RequirementServiceImplTest
         @Override
         public SysDictData selectActiveRequirementStatus(String status)
         {
-            if (!statuses.containsKey(status)) return null;
+            if (!statuses.containsKey(status) || statuses.get(status) == null) return null;
             SysDictData data = new SysDictData();
             data.setDictValue(status);
             data.setDictLabel(statuses.get(status));
@@ -457,7 +541,8 @@ class RequirementServiceImplTest
         @Override
         public List<SysDictData> selectActiveRequirementStatuses()
         {
-            return statuses.entrySet().stream().map(entry -> selectActiveRequirementStatus(entry.getKey())).toList();
+            return statuses.entrySet().stream().map(entry -> selectActiveRequirementStatus(entry.getKey()))
+                .filter(java.util.Objects::nonNull).toList();
         }
 
         private Requirement requirement(java.sql.ResultSet rs) throws java.sql.SQLException

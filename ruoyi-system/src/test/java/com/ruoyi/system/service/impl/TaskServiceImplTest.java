@@ -418,6 +418,7 @@ class TaskServiceImplTest
         }
 
         @Override public int insertRequirement(Requirement value) { return 0; }
+        @Override public int updateRequirementStatus(Long projectId, Long requirementId, String status) { return 0; }
         @Override public int insertRequirementVersion(com.ruoyi.system.domain.RequirementVersion value) { return 0; }
         @Override public int updateCurrentVersion(Long requirementId, Long versionId) { return 0; }
         @Override public int insertRequirementOwner(Long requirementId, Long userId) { return 0; }

@@ -137,6 +137,59 @@ public class RequirementServiceImpl implements IRequirementService
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Requirement updateRequirementStatus(Long projectId, Long requirementId, Long operatorId, String status)
+    {
+        Project project = projectId == null || operatorId == null
+            ? null : projectMapper.selectProjectForUser(projectId, operatorId);
+        if (project == null)
+        {
+            throw new ServiceException("项目不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        if (Project.STATUS_ARCHIVED.equals(project.getStatus()))
+        {
+            throw new ServiceException("归档项目不能开展新的业务操作", HttpStatus.BAD_REQUEST);
+        }
+        if (requirementId == null)
+        {
+            throw new ServiceException("需求不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+
+        String normalizedStatus = status == null ? "" : status.trim();
+        SysDictData statusData = requirementMapper.selectActiveRequirementStatus(normalizedStatus);
+        if (statusData == null)
+        {
+            throw new ServiceException("需求状态不存在或已停用", HttpStatus.BAD_REQUEST);
+        }
+
+        Requirement current = requirementMapper.selectRequirementForUser(projectId, requirementId, operatorId);
+        if (current == null)
+        {
+            throw new ServiceException("需求不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        if (normalizedStatus.equals(current.getStatus()))
+        {
+            return selectRequirementForUserInternal(projectId, requirementId, operatorId);
+        }
+        if (requirementMapper.updateRequirementStatus(projectId, requirementId, normalizedStatus) != 1)
+        {
+            throw new ServiceException("更新需求状态失败");
+        }
+
+        ProjectOperationLog log = new ProjectOperationLog();
+        log.setProjectId(projectId);
+        log.setOperatorId(operatorId);
+        log.setOperationType("REQUIREMENT_STATUS_UPDATE");
+        log.setDetail("更新需求状态：" + current.getStatus() + " -> " + normalizedStatus);
+        log.setCreateTime(new Date());
+        if (projectOperationLogMapper.insertProjectOperationLog(log) != 1)
+        {
+            throw new ServiceException("记录项目操作日志失败");
+        }
+        return selectRequirementForUserInternal(projectId, requirementId, operatorId);
+    }
+
+    @Override
     public List<Requirement> selectRequirementsForUser(Long projectId, Long userId)
     {
         if (projectId == null || userId == null)

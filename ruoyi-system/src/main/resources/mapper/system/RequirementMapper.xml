@@ -35,6 +35,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         values (#{projectId}, #{creatorId}, #{currentVersionId}, #{status}, #{isDeleted}, #{createTime}, #{updateTime})
     </insert>
 
+    <update id="updateRequirementStatus">
+        update pm_requirement
+        set status = #{status}, update_time = CURRENT_TIMESTAMP
+        where project_id = #{projectId}
+          and requirement_id = #{requirementId}
+          and is_deleted = 0
+    </update>
+
     <insert id="insertRequirementVersion" parameterType="RequirementVersion"
         useGeneratedKeys="true" keyProperty="versionId">
         insert into pm_requirement_version

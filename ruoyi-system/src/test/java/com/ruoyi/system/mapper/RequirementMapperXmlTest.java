@@ -132,6 +132,12 @@ class RequirementMapperXmlTest
             assertEquals("待处理", mapper.selectActiveRequirementStatus("todo").getDictLabel());
             assertNull(mapper.selectActiveRequirementStatus("disabled"));
             assertEquals(1, mapper.selectActiveRequirementStatuses().size());
+            assertEquals(1, mapper.updateRequirementStatus(41L, requirement.getRequirementId(), "done"));
+            session.commit();
+            assertEquals("done", jdbc.queryForObject("select status from pm_requirement where requirement_id = ?",
+                String.class, requirement.getRequirementId()));
+            assertEquals(0, mapper.updateRequirementStatus(42L, requirement.getRequirementId(), "todo"));
+            session.commit();
         }
     }
 
