@@ -208,7 +208,8 @@ public class TaskServiceImpl implements ITaskService
         log.setProjectId(projectId);
         log.setOperatorId(operatorId);
         log.setOperationType("TASK_STATUS_UPDATE");
-        log.setDetail("更新任务状态：" + current.getStatus() + " -> " + normalizedStatus);
+        log.setDetail("更新任务状态：" + statusLabel(current.getStatus(), current.getStatusLabel())
+            + " -> " + statusLabel(normalizedStatus, statusData.getDictLabel()));
         log.setCreateTime(new Date());
         if (projectOperationLogMapper.insertProjectOperationLog(log) != 1)
         {
@@ -332,6 +333,11 @@ public class TaskServiceImpl implements ITaskService
             return null;
         }
         return values.stream().filter(item -> value.equals(item.getDictValue())).findFirst().orElse(null);
+    }
+
+    private String statusLabel(String status, String label)
+    {
+        return label == null || label.trim().isEmpty() ? status : label;
     }
 
     private Set<String> values(List<SysDictData> values)

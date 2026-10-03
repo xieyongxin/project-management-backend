@@ -180,7 +180,8 @@ public class RequirementServiceImpl implements IRequirementService
         log.setProjectId(projectId);
         log.setOperatorId(operatorId);
         log.setOperationType("REQUIREMENT_STATUS_UPDATE");
-        log.setDetail("更新需求状态：" + current.getStatus() + " -> " + normalizedStatus);
+        log.setDetail("更新需求状态：" + statusLabel(current.getStatus(), current.getStatusLabel())
+            + " -> " + statusLabel(normalizedStatus, statusData.getDictLabel()));
         log.setCreateTime(new Date());
         if (projectOperationLogMapper.insertProjectOperationLog(log) != 1)
         {
@@ -291,6 +292,11 @@ public class RequirementServiceImpl implements IRequirementService
             unique.add(ownerId);
         }
         return new ArrayList<>(unique);
+    }
+
+    private String statusLabel(String status, String label)
+    {
+        return label == null || label.trim().isEmpty() ? status : label;
     }
 
     private boolean hasContent(String content)

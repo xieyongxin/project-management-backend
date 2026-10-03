@@ -67,6 +67,7 @@ class RequirementServiceImplTest
         JDBC.update("delete from pm_project");
         JDBC.update("delete from sys_user");
         REQUIREMENT_MAPPER.statuses.clear();
+        REQUIREMENT_MAPPER.inactiveStatuses.clear();
         LOG_MAPPER.logs.clear();
         LOG_MAPPER.failNextInsert.set(false);
         Project project = project(Project.STATUS_ACTIVE);
@@ -243,7 +244,23 @@ class RequirementServiceImplTest
         assertEquals("done", done.getStatus());
         assertEquals("REQUIREMENT_STATUS_UPDATE", LOG_MAPPER.logs.get(1).getOperationType());
         assertEquals("REQUIREMENT_STATUS_UPDATE", LOG_MAPPER.logs.get(2).getOperationType());
+        assertEquals("更新需求状态：待处理 -> 进行中", LOG_MAPPER.logs.get(1).getDetail());
+        assertEquals("更新需求状态：进行中 -> 已完成", LOG_MAPPER.logs.get(2).getDetail());
         assertEquals(versionsBefore, count("pm_requirement_version"));
+    }
+
+    @Test
+    void requirementStatusLogKeepsLabelForPreviouslyDisabledStatus()
+    {
+        Requirement created = SERVICE.createRequirement(41L, 21L, "Title", "Body", "todo", List.of(21L));
+        REQUIREMENT_MAPPER.addInactiveStatus("legacy", "旧需求状态");
+        REQUIREMENT_MAPPER.addStatus("done", "已完成");
+        JDBC.update("update pm_requirement set status = ? where requirement_id = ?", "legacy",
+            created.getRequirementId());
+
+        SERVICE.updateRequirementStatus(41L, created.getRequirementId(), 21L, "done");
+
+        assertEquals("更新需求状态：旧需求状态 -> 已完成", LOG_MAPPER.logs.get(1).getDetail());
     }
 
     @Test
@@ -401,6 +418,7 @@ class RequirementServiceImplTest
     {
         private final JdbcTemplate jdbc;
         private final Map<String, String> statuses = new HashMap<>();
+        private final java.util.Set<String> inactiveStatuses = new java.util.HashSet<>();
 
         TestRequirementMapper(JdbcTemplate jdbc)
         {
@@ -410,11 +428,13 @@ class RequirementServiceImplTest
         void addStatus(String value, String label)
         {
             statuses.put(value, label);
+            inactiveStatuses.remove(value);
         }
 
         void addInactiveStatus(String value, String label)
         {
-            statuses.put(value, null);
+            statuses.put(value, label);
+            inactiveStatuses.add(value);
         }
 
         @Override
@@ -568,7 +588,7 @@ class RequirementServiceImplTest
         @Override
         public SysDictData selectActiveRequirementStatus(String status)
         {
-            if (!statuses.containsKey(status) || statuses.get(status) == null) return null;
+            if (!statuses.containsKey(status) || inactiveStatuses.contains(status)) return null;
             SysDictData data = new SysDictData();
             data.setDictValue(status);
             data.setDictLabel(statuses.get(status));

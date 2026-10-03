@@ -274,7 +274,23 @@ class TaskServiceImplTest
         assertEquals("done", done.getStatus());
         assertEquals("TASK_STATUS_UPDATE", LOG_MAPPER.logs.get(1).getOperationType());
         assertEquals("TASK_STATUS_UPDATE", LOG_MAPPER.logs.get(2).getOperationType());
+        assertEquals("更新任务状态：待处理 -> 进行中", LOG_MAPPER.logs.get(1).getDetail());
+        assertEquals("更新任务状态：进行中 -> 已完成", LOG_MAPPER.logs.get(2).getDetail());
         assertEquals(versionsBefore, count("pm_task_version"));
+    }
+
+    @Test
+    void taskStatusLogKeepsLabelForPreviouslyDisabledStatus()
+    {
+        Task created = SERVICE.createTask(41L, 21L, 7L, "Title", "Description", "todo",
+            List.of("dev"), List.of(21L));
+        TASK_MAPPER.addInactiveStatus("legacy", "旧任务状态");
+        TASK_MAPPER.addStatus("done", "已完成");
+        JDBC.update("update pm_task set status = ? where task_id = ?", "legacy", created.getTaskId());
+
+        SERVICE.updateTaskStatus(41L, created.getTaskId(), 21L, "done");
+
+        assertEquals("更新任务状态：旧任务状态 -> 已完成", LOG_MAPPER.logs.get(1).getDetail());
     }
 
     @Test
