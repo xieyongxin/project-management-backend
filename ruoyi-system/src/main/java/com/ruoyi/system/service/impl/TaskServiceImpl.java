@@ -261,6 +261,30 @@ public class TaskServiceImpl implements ITaskService
     }
 
     @Override
+    public List<TaskVersion> compareTaskVersionsForUser(Long projectId, Long taskId, Long leftVersionId,
+        Long rightVersionId, Long userId)
+    {
+        List<TaskVersion> versions = selectTaskVersionsForUser(projectId, taskId, userId);
+        if (versions == null)
+        {
+            return null;
+        }
+        if (leftVersionId == null || rightVersionId == null || leftVersionId.equals(rightVersionId))
+        {
+            throw new ServiceException("任务版本对比必须选择两个不同版本", HttpStatus.BAD_REQUEST);
+        }
+        TaskVersion left = versions.stream().filter(version -> leftVersionId.equals(version.getVersionId()))
+            .findFirst().orElse(null);
+        TaskVersion right = versions.stream().filter(version -> rightVersionId.equals(version.getVersionId()))
+            .findFirst().orElse(null);
+        if (left == null || right == null)
+        {
+            return null;
+        }
+        return List.of(left, right);
+    }
+
+    @Override
     public List<SysDictData> selectActiveStatuses(Long projectId, Long userId)
     {
         if (!isProjectMember(projectId, userId))

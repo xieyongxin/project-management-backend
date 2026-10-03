@@ -18,6 +18,9 @@ public interface ITaskService
 
     List<TaskVersion> selectTaskVersionsForUser(Long projectId, Long taskId, Long userId);
 
+    List<TaskVersion> compareTaskVersionsForUser(Long projectId, Long taskId, Long leftVersionId,
+        Long rightVersionId, Long userId);
+
     List<SysDictData> selectActiveStatuses(Long projectId, Long userId);
 
     List<SysDictData> selectActiveCategories(Long projectId, Long userId);

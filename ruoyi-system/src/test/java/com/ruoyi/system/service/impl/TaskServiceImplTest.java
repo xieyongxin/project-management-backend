@@ -218,6 +218,46 @@ class TaskServiceImplTest
     }
 
     @Test
+    void memberCanCompareTwoTaskVersionsAndVersionsMustBelongToTask()
+    {
+        Task created = SERVICE.createTask(41L, 21L, 7L, "旧标题", "旧说明", "todo",
+            List.of("dev"), List.of(21L));
+        TaskVersion second = new TaskVersion();
+        second.setTaskId(created.getTaskId());
+        second.setVersionNo(2);
+        second.setTitle("新标题");
+        second.setDescription("新说明");
+        second.setRequirementVersionId(502L);
+        second.setCreatedBy(21L);
+        second.setCreateTime(new Date());
+        TASK_MAPPER.insertTaskVersion(second);
+
+        List<TaskVersion> comparison = SERVICE.compareTaskVersionsForUser(41L, created.getTaskId(),
+            created.getCurrentVersionId(), second.getVersionId(), 21L);
+
+        assertEquals(List.of("旧标题", "新标题"), comparison.stream().map(TaskVersion::getTitle).toList());
+        assertEquals(502L, comparison.get(1).getRequirementVersionId());
+        assertNull(SERVICE.compareTaskVersionsForUser(41L, created.getTaskId(), 501L, second.getVersionId(), 21L));
+        assertNull(SERVICE.compareTaskVersionsForUser(41L, created.getTaskId(),
+            created.getCurrentVersionId(), 999L, 21L));
+        assertNull(SERVICE.compareTaskVersionsForUser(41L, created.getTaskId(),
+            created.getCurrentVersionId(), second.getVersionId(), 22L));
+    }
+
+    @Test
+    void comparingSameTaskVersionIsRejected()
+    {
+        Task created = SERVICE.createTask(41L, 21L, 7L, "标题", "说明", "todo",
+            List.of("dev"), List.of(21L));
+        ServiceException error = assertThrows(ServiceException.class,
+            () -> SERVICE.compareTaskVersionsForUser(41L, created.getTaskId(), created.getCurrentVersionId(),
+                created.getCurrentVersionId(), 21L));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getCode());
+        assertNull(SERVICE.compareTaskVersionsForUser(41L, 999L, 18L, 18L, 21L));
+    }
+
+    @Test
     void memberCanChangeTaskStatusToAnyActiveValueWithoutCreatingVersion()
     {
         TASK_MAPPER.addStatus("doing", "进行中");

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -61,6 +62,9 @@ class TaskControllerTest
         org.springframework.security.access.prepost.PreAuthorize versions = TaskController.class
             .getMethod("versions", String.class, String.class)
             .getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class);
+        org.springframework.security.access.prepost.PreAuthorize compareVersions = TaskController.class
+            .getMethod("compareVersions", String.class, String.class, String.class, String.class)
+            .getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class);
         org.springframework.security.access.prepost.PreAuthorize updateStatus = TaskController.class
             .getMethod("updateStatus", String.class, String.class, TaskStatusUpdateRequest.class)
             .getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class);
@@ -69,10 +73,12 @@ class TaskControllerTest
         assertNotNull(create);
         assertNotNull(detail);
         assertNotNull(versions);
+        assertNotNull(compareVersions);
         assertNotNull(updateStatus);
         assertEquals("@ss.hasPermi('project:task:list')", list.value());
         assertEquals("@ss.hasPermi('project:task:list')", detail.value());
         assertEquals("@ss.hasPermi('project:task:list')", versions.value());
+        assertEquals("@ss.hasPermi('project:task:list')", compareVersions.value());
         assertEquals("@ss.hasPermi('project:task:status')", updateStatus.value());
         assertEquals("@ss.hasPermi('project:task:add')", options.value());
         assertEquals("@ss.hasPermi('project:task:add')", create.value());
@@ -138,11 +144,43 @@ class TaskControllerTest
     }
 
     @Test
+    void memberCanCompareTwoTaskVersionsAndNonMemberGets404()
+    {
+        setCurrentUser(23L);
+        TaskVersion left = new TaskVersion();
+        left.setVersionId(18L);
+        left.setTaskId(8L);
+        left.setVersionNo(1);
+        left.setTitle("旧标题");
+        TaskVersion right = new TaskVersion();
+        right.setVersionId(19L);
+        right.setTaskId(8L);
+        right.setVersionNo(2);
+        right.setTitle("新标题");
+        when(taskService.compareTaskVersionsForUser(41L, 8L, 18L, 19L, 23L))
+            .thenReturn(List.of(left, right));
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(new MockHttpServletRequest()));
+
+        ResponseEntity<?> response = controller.compareVersions("41", "8", "18", "19");
+
+        assertEquals(200, response.getStatusCode().value());
+        Map<?, ?> data = (Map<?, ?>) ((AjaxResult) response.getBody()).get("data");
+        assertEquals("旧标题", ((TaskVersionView) data.get("left")).getTitle());
+        assertEquals("新标题", ((TaskVersionView) data.get("right")).getTitle());
+
+        when(taskService.compareTaskVersionsForUser(41L, 8L, 18L, 19L, 23L)).thenReturn(null);
+        assertEquals(404, controller.compareVersions("41", "8", "18", "19").getStatusCode().value());
+        verify(taskService, org.mockito.Mockito.times(2))
+            .compareTaskVersionsForUser(41L, 8L, 18L, 19L, 23L);
+    }
+
+    @Test
     void malformedTaskIdsDoNotQueryService()
     {
         setCurrentUser(23L);
         assertEquals(404, controller.detail("bad", "8").getStatusCode().value());
         assertEquals(404, controller.versions("41", "bad").getStatusCode().value());
+        assertEquals(404, controller.compareVersions("41", "8", "bad", "19").getStatusCode().value());
         assertEquals(404, controller.updateStatus("41", "bad", statusRequest()).getStatusCode().value());
         org.mockito.Mockito.verifyNoInteractions(taskService);
     }
@@ -174,6 +212,19 @@ class TaskControllerTest
 
         assertEquals(400, response.getStatusCode().value());
         assertEquals(HttpStatus.BAD_REQUEST, response.getBody().get("code"));
+    }
+
+    @Test
+    void comparingSameTaskVersionUsesBadRequest()
+    {
+        setCurrentUser(23L);
+        doThrow(new ServiceException("任务版本对比必须选择两个不同版本", HttpStatus.BAD_REQUEST))
+            .when(taskService).compareTaskVersionsForUser(41L, 8L, 18L, 18L, 23L);
+
+        ResponseEntity<?> response = controller.compareVersions("41", "8", "18", "18");
+
+        assertEquals(400, response.getStatusCode().value());
+        assertEquals(HttpStatus.BAD_REQUEST, ((AjaxResult) response.getBody()).get("code"));
     }
 
     @Test

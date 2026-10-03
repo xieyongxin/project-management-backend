@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -92,6 +93,37 @@ public class TaskController extends BaseController
             return notFound();
         }
         return ResponseEntity.ok(success(versions.stream().map(TaskVersionView::from).toList()));
+    }
+
+    @PreAuthorize("@ss.hasPermi('project:task:list')")
+    @GetMapping("/{taskId}/versions/compare")
+    public ResponseEntity<?> compareVersions(@PathVariable String projectId, @PathVariable String taskId,
+        @RequestParam String leftVersionId, @RequestParam String rightVersionId)
+    {
+        Long parsedProjectId = parseId(projectId);
+        Long parsedTaskId = parseId(taskId);
+        Long parsedLeftVersionId = parseId(leftVersionId);
+        Long parsedRightVersionId = parseId(rightVersionId);
+        if (parsedProjectId == null || parsedTaskId == null || parsedLeftVersionId == null
+            || parsedRightVersionId == null)
+        {
+            return notFound();
+        }
+        try
+        {
+            List<TaskVersion> versions = taskService.compareTaskVersionsForUser(parsedProjectId, parsedTaskId,
+                parsedLeftVersionId, parsedRightVersionId, getUserId());
+            if (versions == null)
+            {
+                return notFound();
+            }
+            return ResponseEntity.ok(success(Map.of("left", TaskVersionView.from(versions.get(0)),
+                "right", TaskVersionView.from(versions.get(1)))));
+        }
+        catch (ServiceException e)
+        {
+            return serviceError(e);
+        }
     }
 
     @PreAuthorize("@ss.hasPermi('project:task:status')")
