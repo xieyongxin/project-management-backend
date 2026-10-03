@@ -167,6 +167,10 @@ public class RequirementServiceImpl implements IRequirementService
         {
             throw new ServiceException("需求不存在或无权访问", HttpStatus.NOT_FOUND);
         }
+        if (Integer.valueOf(1).equals(current.getIsDeleted()))
+        {
+            throw new ServiceException("已删除需求不能修改状态", HttpStatus.BAD_REQUEST);
+        }
         if (normalizedStatus.equals(current.getStatus()))
         {
             return selectRequirementForUserInternal(projectId, requirementId, operatorId);
@@ -230,6 +234,10 @@ public class RequirementServiceImpl implements IRequirementService
         {
             throw new ServiceException("需求不存在或无权访问", HttpStatus.NOT_FOUND);
         }
+        if (Integer.valueOf(1).equals(current.getIsDeleted()))
+        {
+            throw new ServiceException("已删除需求不能修改内容", HttpStatus.BAD_REQUEST);
+        }
         if (normalizedTitle.equals(current.getTitle()) && normalizedContent.equals(current.getContent()))
         {
             return current;
@@ -261,6 +269,56 @@ public class RequirementServiceImpl implements IRequirementService
         log.setOperatorId(operatorId);
         log.setOperationType("REQUIREMENT_CONTENT_UPDATE");
         log.setDetail("更新需求内容：v" + current.getCurrentVersionNo() + " -> v" + nextVersion.getVersionNo());
+        log.setCreateTime(new Date());
+        if (projectOperationLogMapper.insertProjectOperationLog(log) != 1)
+        {
+            throw new ServiceException("记录项目操作日志失败");
+        }
+        return selectRequirementForUserInternal(projectId, requirementId, operatorId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Requirement deleteRequirement(Long projectId, Long requirementId, Long operatorId)
+    {
+        Project project = projectId == null || operatorId == null
+            ? null : projectMapper.selectProjectForUser(projectId, operatorId);
+        if (project == null)
+        {
+            throw new ServiceException("项目不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        if (Project.STATUS_ARCHIVED.equals(project.getStatus()))
+        {
+            throw new ServiceException("归档项目不能开展新的业务操作", HttpStatus.BAD_REQUEST);
+        }
+        if (requirementId == null)
+        {
+            throw new ServiceException("需求不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+
+        Requirement current = selectRequirementForUserInternal(projectId, requirementId, operatorId);
+        if (current == null)
+        {
+            throw new ServiceException("需求不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        if (Integer.valueOf(1).equals(current.getIsDeleted()))
+        {
+            throw new ServiceException("需求已删除", HttpStatus.BAD_REQUEST);
+        }
+        if (requirementMapper.countActiveTasksByRequirement(projectId, requirementId) > 0)
+        {
+            throw new ServiceException("需求存在未删除任务，不能删除", HttpStatus.BAD_REQUEST);
+        }
+        if (requirementMapper.logicalDeleteRequirement(projectId, requirementId) != 1)
+        {
+            throw new ServiceException("删除需求失败");
+        }
+
+        ProjectOperationLog log = new ProjectOperationLog();
+        log.setProjectId(projectId);
+        log.setOperatorId(operatorId);
+        log.setOperationType("REQUIREMENT_DELETE");
+        log.setDetail("需求 #" + requirementId + " 已删除");
         log.setCreateTime(new Date());
         if (projectOperationLogMapper.insertProjectOperationLog(log) != 1)
         {

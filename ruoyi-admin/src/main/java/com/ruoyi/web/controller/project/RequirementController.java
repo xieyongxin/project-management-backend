@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -166,6 +167,28 @@ public class RequirementController extends BaseController
         {
             Requirement requirement = requirementService.updateRequirementContent(parsedProjectId,
                 parsedRequirementId, getUserId(), request.getTitle(), request.getContent());
+            return ResponseEntity.ok(success(RequirementView.from(requirement)));
+        }
+        catch (ServiceException e)
+        {
+            return serviceError(e);
+        }
+    }
+
+    @PreAuthorize("@ss.hasPermi('project:requirement:delete')")
+    @DeleteMapping("/{requirementId}")
+    public ResponseEntity<AjaxResult> delete(@PathVariable String projectId, @PathVariable String requirementId)
+    {
+        Long parsedProjectId = parseId(projectId);
+        Long parsedRequirementId = parseId(requirementId);
+        if (parsedProjectId == null || parsedRequirementId == null)
+        {
+            return notFound();
+        }
+        try
+        {
+            Requirement requirement = requirementService.deleteRequirement(parsedProjectId,
+                parsedRequirementId, getUserId());
             return ResponseEntity.ok(success(RequirementView.from(requirement)));
         }
         catch (ServiceException e)

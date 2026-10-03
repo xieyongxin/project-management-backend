@@ -60,6 +60,7 @@ class RequirementServiceImplTest
     @BeforeEach
     void clean()
     {
+        JDBC.update("delete from pm_task");
         JDBC.update("delete from pm_requirement_owner");
         JDBC.update("delete from pm_requirement_version");
         JDBC.update("delete from pm_requirement");
@@ -374,6 +375,74 @@ class RequirementServiceImplTest
         assertEquals(1, LOG_MAPPER.logs.size());
     }
 
+    @Test
+    void requirementCanBeLogicallyDeletedAndRemainsVisibleWithVersionAndLog()
+    {
+        Requirement requirement = SERVICE.createRequirement(41L, 21L, "Title", "Body", "todo", List.of(21L));
+
+        Requirement deleted = SERVICE.deleteRequirement(41L, requirement.getRequirementId(), 21L);
+
+        assertEquals(1, deleted.getIsDeleted());
+        assertEquals("Title", SERVICE.selectRequirementForUser(41L, requirement.getRequirementId(), 21L).getTitle());
+        assertEquals(1, SERVICE.selectRequirementVersionsForUser(41L, requirement.getRequirementId(), 21L).size());
+        assertEquals("REQUIREMENT_DELETE", LOG_MAPPER.logs.get(1).getOperationType());
+        assertEquals(1, count("pm_requirement"));
+        assertEquals(1, JDBC.queryForObject("select is_deleted from pm_requirement where requirement_id = ?",
+            Integer.class, requirement.getRequirementId()));
+    }
+
+    @Test
+    void activeTasksBlockDeletionButDeletedTasksDoNot()
+    {
+        Requirement requirement = SERVICE.createRequirement(41L, 21L, "Title", "Body", "todo", List.of(21L));
+        JDBC.update("insert into pm_task (project_id, requirement_id, is_deleted) values (?, ?, 0)",
+            41L, requirement.getRequirementId());
+
+        ServiceException blocked = assertThrows(ServiceException.class,
+            () -> SERVICE.deleteRequirement(41L, requirement.getRequirementId(), 21L));
+        assertEquals(HttpStatus.BAD_REQUEST, blocked.getCode());
+        assertEquals(0, JDBC.queryForObject("select is_deleted from pm_requirement where requirement_id = ?",
+            Integer.class, requirement.getRequirementId()));
+
+        JDBC.update("update pm_task set is_deleted = 1 where requirement_id = ?", requirement.getRequirementId());
+        Requirement deleted = SERVICE.deleteRequirement(41L, requirement.getRequirementId(), 21L);
+        assertEquals(1, deleted.getIsDeleted());
+    }
+
+    @Test
+    void deletionEnforcesMembershipArchiveAndRollsBackWhenLogFails()
+    {
+        Requirement requirement = SERVICE.createRequirement(41L, 21L, "Title", "Body", "todo", List.of(21L));
+        ServiceException nonMember = assertThrows(ServiceException.class,
+            () -> SERVICE.deleteRequirement(41L, requirement.getRequirementId(), 22L));
+        ServiceException archived = assertThrows(ServiceException.class,
+            () -> SERVICE.deleteRequirement(41L, requirement.getRequirementId(), 99L));
+        assertEquals(HttpStatus.NOT_FOUND, nonMember.getCode());
+        assertEquals(HttpStatus.BAD_REQUEST, archived.getCode());
+
+        LOG_MAPPER.failNextInsert.set(true);
+        assertThrows(IllegalStateException.class,
+            () -> SERVICE.deleteRequirement(41L, requirement.getRequirementId(), 21L));
+        assertEquals(0, JDBC.queryForObject("select is_deleted from pm_requirement where requirement_id = ?",
+            Integer.class, requirement.getRequirementId()));
+        assertEquals(1, LOG_MAPPER.logs.size());
+    }
+
+    @Test
+    void deletedRequirementCannotBeEditedOrHaveStatusChanged()
+    {
+        Requirement requirement = SERVICE.createRequirement(41L, 21L, "Title", "Body", "todo", List.of(21L));
+        SERVICE.deleteRequirement(41L, requirement.getRequirementId(), 21L);
+        REQUIREMENT_MAPPER.addStatus("done", "已完成");
+
+        ServiceException content = assertThrows(ServiceException.class,
+            () -> SERVICE.updateRequirementContent(41L, requirement.getRequirementId(), 21L, "New", "Body"));
+        ServiceException status = assertThrows(ServiceException.class,
+            () -> SERVICE.updateRequirementStatus(41L, requirement.getRequirementId(), 21L, "done"));
+        assertEquals(HttpStatus.BAD_REQUEST, content.getCode());
+        assertEquals(HttpStatus.BAD_REQUEST, status.getCode());
+    }
+
     private Project project(String status)
     {
         Project project = new Project();
@@ -468,6 +537,8 @@ class RequirementServiceImplTest
                 + "attachment_snapshot clob, created_by bigint, create_time timestamp)");
             jdbcTemplate.execute("create table pm_requirement_owner (requirement_id bigint, user_id bigint, "
                 + "primary key(requirement_id, user_id))");
+            jdbcTemplate.execute("create table pm_task (task_id bigint auto_increment primary key, "
+                + "project_id bigint, requirement_id bigint, is_deleted integer)");
             return new Object();
         }
     }
@@ -500,6 +571,20 @@ class RequirementServiceImplTest
         {
             return jdbc.update("update pm_requirement set status = ?, update_time = CURRENT_TIMESTAMP "
                 + "where project_id = ? and requirement_id = ? and is_deleted = 0", status, projectId, requirementId);
+        }
+
+        @Override
+        public int countActiveTasksByRequirement(Long projectId, Long requirementId)
+        {
+            return jdbc.queryForObject("select count(*) from pm_task where project_id = ? and requirement_id = ? "
+                + "and is_deleted = 0", Integer.class, projectId, requirementId);
+        }
+
+        @Override
+        public int logicalDeleteRequirement(Long projectId, Long requirementId)
+        {
+            return jdbc.update("update pm_requirement set is_deleted = 1, update_time = CURRENT_TIMESTAMP "
+                + "where project_id = ? and requirement_id = ? and is_deleted = 0", projectId, requirementId);
         }
 
         @Override
@@ -565,7 +650,7 @@ class RequirementServiceImplTest
             List<Requirement> requirements = jdbc.query("select r.*, v.version_no, v.title, v.content "
                 + "from pm_requirement r inner join pm_requirement_version v on v.version_id = r.current_version_id "
                 + "inner join pm_project_member m on m.project_id = r.project_id and m.user_id = ? "
-                + "where r.project_id = ? and r.requirement_id = ? and r.is_deleted = 0",
+                + "where r.project_id = ? and r.requirement_id = ?",
                 (rs, rowNum) -> requirement(rs), userId, projectId, requirementId);
             if (requirements.isEmpty()) return null;
             Requirement result = requirements.get(0);
@@ -578,11 +663,12 @@ class RequirementServiceImplTest
             Long userId)
         {
             return jdbc.query("select v.version_id, v.requirement_id, v.version_no, v.title, v.content, "
+                + "r.is_deleted, "
                 + "v.attachment_snapshot, v.created_by, v.create_time "
                 + "from pm_requirement_version v inner join pm_requirement r "
                 + "on r.requirement_id = v.requirement_id "
                 + "inner join pm_project_member m on m.project_id = r.project_id and m.user_id = ? "
-                + "where r.project_id = ? and r.requirement_id = ? and r.is_deleted = 0 "
+                + "where r.project_id = ? and r.requirement_id = ? "
                 + "order by v.version_no asc, v.version_id asc", (rs, rowNum) -> {
                     RequirementVersion version = new RequirementVersion();
                     version.setVersionId(rs.getLong("version_id"));
@@ -593,6 +679,7 @@ class RequirementServiceImplTest
                     version.setAttachmentSnapshot(rs.getString("attachment_snapshot"));
                     version.setCreatedBy(rs.getLong("created_by"));
                     version.setCreateTime(rs.getTimestamp("create_time"));
+                    version.setIsDeleted(rs.getInt("is_deleted"));
                     return version;
                 }, userId, projectId, requirementId);
         }
@@ -603,7 +690,7 @@ class RequirementServiceImplTest
             return jdbc.query("select distinct r.*, v.version_no, v.title, v.content "
                 + "from pm_requirement r inner join pm_requirement_version v on v.version_id = r.current_version_id "
                 + "inner join pm_project_member m on m.project_id = r.project_id and m.user_id = ? "
-                + "where r.project_id = ? and r.is_deleted = 0 order by r.create_time desc, r.requirement_id desc",
+                + "where r.project_id = ? order by r.create_time desc, r.requirement_id desc",
                 (rs, rowNum) -> requirement(rs), userId, projectId);
         }
 

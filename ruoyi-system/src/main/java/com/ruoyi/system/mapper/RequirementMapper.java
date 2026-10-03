@@ -14,6 +14,12 @@ public interface RequirementMapper
     int updateRequirementStatus(@Param("projectId") Long projectId, @Param("requirementId") Long requirementId,
         @Param("status") String status);
 
+    int countActiveTasksByRequirement(@Param("projectId") Long projectId,
+        @Param("requirementId") Long requirementId);
+
+    int logicalDeleteRequirement(@Param("projectId") Long projectId,
+        @Param("requirementId") Long requirementId);
+
     int insertRequirementVersion(RequirementVersion version);
 
     int updateCurrentVersion(@Param("requirementId") Long requirementId,

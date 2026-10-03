@@ -57,6 +57,8 @@ class RequirementMapperXmlTest
             + "attachment_snapshot clob, created_by bigint, create_time timestamp)");
         jdbc.execute("create table pm_requirement_owner (requirement_id bigint, user_id bigint, "
             + "primary key(requirement_id, user_id))");
+        jdbc.execute("create table pm_task (task_id bigint auto_increment primary key, project_id bigint, "
+            + "requirement_id bigint, is_deleted integer)");
 
         Configuration configuration = new Configuration(
             new Environment("pm0012-test", new JdbcTransactionFactory(), dataSource));
@@ -79,6 +81,7 @@ class RequirementMapperXmlTest
         jdbc.update("insert into sys_dict_data values (101, 1, '待处理', 'todo', 'pm_requirement_status', '', '', 'Y', '0', 'admin', ?, null, null, '')", now);
         jdbc.update("insert into sys_dict_data values (102, 2, '停用', 'disabled', 'pm_requirement_status', '', '', 'N', '1', 'admin', ?, null, null, '')", now);
 
+        Long requirementId = null;
         try (SqlSession session = sqlSessionFactory.openSession(false))
         {
             RequirementMapper mapper = session.getMapper(RequirementMapper.class);
@@ -138,6 +141,30 @@ class RequirementMapperXmlTest
                 String.class, requirement.getRequirementId()));
             assertEquals(0, mapper.updateRequirementStatus(42L, requirement.getRequirementId(), "todo"));
             session.commit();
+
+            requirementId = requirement.getRequirementId();
+            jdbc.update("insert into pm_task (project_id, requirement_id, is_deleted) values (?, ?, 0)",
+                41L, requirementId);
+            jdbc.update("insert into pm_task (project_id, requirement_id, is_deleted) values (?, ?, 1)",
+                41L, requirementId);
+            assertEquals(1, mapper.countActiveTasksByRequirement(41L, requirementId));
+            jdbc.update("update pm_task set is_deleted = 1 where project_id = ? and requirement_id = ?",
+                41L, requirementId);
+            session.commit();
+        }
+
+        try (SqlSession session = sqlSessionFactory.openSession(false))
+        {
+            RequirementMapper mapper = session.getMapper(RequirementMapper.class);
+            assertEquals(0, mapper.countActiveTasksByRequirement(41L, requirementId));
+            assertEquals(1, mapper.logicalDeleteRequirement(41L, requirementId));
+            session.commit();
+            assertEquals(1, mapper.selectRequirementForUser(41L, requirementId, 21L)
+                .getIsDeleted());
+            assertEquals(1, mapper.selectRequirementsForUser(41L, 21L).size());
+            assertEquals(2, mapper.selectRequirementVersionsForUser(41L, requirementId, 21L).size());
+            assertEquals(List.of(1, 1), mapper.selectRequirementVersionsForUser(41L, requirementId, 21L)
+                .stream().map(RequirementVersion::getIsDeleted).toList());
         }
     }
 

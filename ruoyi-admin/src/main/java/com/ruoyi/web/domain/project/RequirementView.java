@@ -14,6 +14,7 @@ public class RequirementView
     private String content;
     private String status;
     private String statusLabel;
+    private Integer isDeleted;
     private java.util.Date createTime;
     private java.util.Date updateTime;
     private List<RequirementOwnerView> owners;
@@ -30,6 +31,7 @@ public class RequirementView
         view.setContent(requirement.getContent());
         view.setStatus(requirement.getStatus());
         view.setStatusLabel(requirement.getStatusLabel());
+        view.setIsDeleted(requirement.getIsDeleted());
         view.setCreateTime(requirement.getCreateTime());
         view.setUpdateTime(requirement.getUpdateTime());
         view.setOwners(requirement.getOwners() == null ? List.of()
@@ -55,6 +57,8 @@ public class RequirementView
     public void setStatus(String status) { this.status = status; }
     public String getStatusLabel() { return statusLabel; }
     public void setStatusLabel(String statusLabel) { this.statusLabel = statusLabel; }
+    public Integer getIsDeleted() { return isDeleted; }
+    public void setIsDeleted(Integer isDeleted) { this.isDeleted = isDeleted; }
     public java.util.Date getCreateTime() { return createTime; }
     public void setCreateTime(java.util.Date createTime) { this.createTime = createTime; }
     public java.util.Date getUpdateTime() { return updateTime; }

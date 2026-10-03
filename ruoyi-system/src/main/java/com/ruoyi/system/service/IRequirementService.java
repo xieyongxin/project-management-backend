@@ -15,6 +15,8 @@ public interface IRequirementService
     Requirement updateRequirementContent(Long projectId, Long requirementId, Long operatorId,
         String title, String content);
 
+    Requirement deleteRequirement(Long projectId, Long requirementId, Long operatorId);
+
     List<Requirement> selectRequirementsForUser(Long projectId, Long userId);
 
     Requirement selectRequirementForUser(Long projectId, Long requirementId, Long userId);

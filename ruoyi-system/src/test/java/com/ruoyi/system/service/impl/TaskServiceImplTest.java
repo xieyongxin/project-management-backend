@@ -149,6 +149,18 @@ class TaskServiceImplTest
     }
 
     @Test
+    void deletedRequirementCannotBeUsedForNewTask()
+    {
+        REQUIREMENT_MAPPER.requirement.setIsDeleted(1);
+
+        ServiceException error = assertThrows(ServiceException.class,
+            () -> SERVICE.createTask(41L, 21L, 7L, "Title", "Description", "todo", List.of("dev"), List.of(21L)));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getCode());
+        assertEquals(0, count("pm_task"));
+    }
+
+    @Test
     void duplicateCategoriesAndOwnersAreStoredOnce()
     {
         Task task = SERVICE.createTask(41L, 21L, 7L, "Title", "Description", "todo",
@@ -475,6 +487,8 @@ class TaskServiceImplTest
 
         @Override public int insertRequirement(Requirement value) { return 0; }
         @Override public int updateRequirementStatus(Long projectId, Long requirementId, String status) { return 0; }
+        @Override public int countActiveTasksByRequirement(Long projectId, Long requirementId) { return 0; }
+        @Override public int logicalDeleteRequirement(Long projectId, Long requirementId) { return 0; }
         @Override public int insertRequirementVersion(com.ruoyi.system.domain.RequirementVersion value) { return 0; }
         @Override public int updateCurrentVersion(Long requirementId, Long versionId) { return 0; }
         @Override public int insertRequirementOwner(Long requirementId, Long userId) { return 0; }

@@ -66,6 +66,10 @@ public class TaskServiceImpl implements ITaskService
         {
             throw new ServiceException("需求不存在或无权访问", HttpStatus.NOT_FOUND);
         }
+        if (Integer.valueOf(1).equals(requirement.getIsDeleted()))
+        {
+            throw new ServiceException("已删除需求不能新建任务关联", HttpStatus.BAD_REQUEST);
+        }
         String normalizedTitle = title == null ? "" : title.trim();
         if (normalizedTitle.isEmpty())
         {

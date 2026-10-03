@@ -12,6 +12,7 @@ public class RequirementVersion
     private String attachmentSnapshot;
     private Long createdBy;
     private Date createTime;
+    private Integer isDeleted;
 
     public Long getVersionId() { return versionId; }
     public void setVersionId(Long versionId) { this.versionId = versionId; }
@@ -29,4 +30,6 @@ public class RequirementVersion
     public void setCreatedBy(Long createdBy) { this.createdBy = createdBy; }
     public Date getCreateTime() { return createTime; }
     public void setCreateTime(Date createTime) { this.createTime = createTime; }
+    public Integer getIsDeleted() { return isDeleted; }
+    public void setIsDeleted(Integer isDeleted) { this.isDeleted = isDeleted; }
 }

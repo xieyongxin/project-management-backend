@@ -28,6 +28,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="attachmentSnapshot" column="attachment_snapshot" />
         <result property="createdBy" column="created_by" />
         <result property="createTime" column="create_time" />
+        <result property="isDeleted" column="is_deleted" />
     </resultMap>
 
     <insert id="insertRequirement" parameterType="Requirement" useGeneratedKeys="true" keyProperty="requirementId">
@@ -38,6 +39,22 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <update id="updateRequirementStatus">
         update pm_requirement
         set status = #{status}, update_time = CURRENT_TIMESTAMP
+        where project_id = #{projectId}
+          and requirement_id = #{requirementId}
+          and is_deleted = 0
+    </update>
+
+    <select id="countActiveTasksByRequirement" resultType="int">
+        select count(1)
+        from pm_task
+        where project_id = #{projectId}
+          and requirement_id = #{requirementId}
+          and is_deleted = 0
+    </select>
+
+    <update id="logicalDeleteRequirement">
+        update pm_requirement
+        set is_deleted = 1, update_time = CURRENT_TIMESTAMP
         where project_id = #{projectId}
           and requirement_id = #{requirementId}
           and is_deleted = 0
@@ -70,7 +87,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         inner join pm_requirement_version v on v.version_id = r.current_version_id
         left join sys_dict_data d on d.dict_type = 'pm_requirement_status'
             and d.dict_value = r.status
-        where r.is_deleted = 0
+        where 1 = 1
     </sql>
 
     <select id="selectRequirementForUser" resultMap="RequirementResult">
@@ -86,11 +103,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <select id="selectRequirementVersionsForUser" resultMap="RequirementVersionResult">
         select v.version_id, v.requirement_id, v.version_no, v.title, v.content,
-               v.attachment_snapshot, v.created_by, v.create_time
+               v.attachment_snapshot, v.created_by, v.create_time, r.is_deleted
         from pm_requirement_version v
         inner join pm_requirement r on r.requirement_id = v.requirement_id
-        where r.is_deleted = 0
-          and r.project_id = #{projectId}
+        where r.project_id = #{projectId}
           and r.requirement_id = #{requirementId}
           and exists (
               select 1 from pm_project_member access_member

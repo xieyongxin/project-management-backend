@@ -87,6 +87,11 @@ class RequirementControllerTest
             .getAnnotation(PreAuthorize.class);
         assertNotNull(updateContent);
         assertEquals("@ss.hasPermi('project:requirement:edit')", updateContent.value());
+        PreAuthorize delete = RequirementController.class
+            .getMethod("delete", String.class, String.class)
+            .getAnnotation(PreAuthorize.class);
+        assertNotNull(delete);
+        assertEquals("@ss.hasPermi('project:requirement:delete')", delete.value());
     }
 
     @Test
@@ -297,6 +302,28 @@ class RequirementControllerTest
         doThrow(new ServiceException("归档项目不能开展新的业务操作", HttpStatus.BAD_REQUEST))
             .when(requirementService).createRequirement(41L, 23L, "登录", "<p>正文</p>", "todo", List.of(23L));
         ResponseEntity<AjaxResult> error = controller.create("41", request);
+        assertEquals(400, error.getStatusCode().value());
+        assertEquals(HttpStatus.BAD_REQUEST, error.getBody().get("code"));
+    }
+
+    @Test
+    void memberCanDeleteRequirementAndServiceErrorsPropagate()
+    {
+        setCurrentUser(23L, Set.of("project:requirement:delete"));
+        Requirement requirement = new Requirement();
+        requirement.setRequirementId(8L);
+        requirement.setIsDeleted(1);
+        when(requirementService.deleteRequirement(41L, 8L, 23L)).thenReturn(requirement);
+
+        ResponseEntity<AjaxResult> response = controller.delete("41", "8");
+
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals(1, ((RequirementView) response.getBody().get("data")).getIsDeleted());
+        verify(requirementService).deleteRequirement(41L, 8L, 23L);
+
+        doThrow(new ServiceException("需求存在未删除任务，不能删除", HttpStatus.BAD_REQUEST))
+            .when(requirementService).deleteRequirement(41L, 8L, 23L);
+        ResponseEntity<AjaxResult> error = controller.delete("41", "8");
         assertEquals(400, error.getStatusCode().value());
         assertEquals(HttpStatus.BAD_REQUEST, error.getBody().get("code"));
     }
