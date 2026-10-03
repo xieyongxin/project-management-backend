@@ -36,6 +36,18 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="email" column="email" />
     </resultMap>
 
+    <resultMap type="TaskVersion" id="TaskVersionResult">
+        <id property="versionId" column="version_id" />
+        <id property="taskId" column="task_id" />
+        <result property="versionNo" column="version_no" />
+        <result property="title" column="title" />
+        <result property="description" column="description" />
+        <result property="requirementVersionId" column="requirement_version_id" />
+        <result property="requirementVersionNo" column="requirement_version_no" />
+        <result property="createdBy" column="created_by" />
+        <result property="createTime" column="create_time" />
+    </resultMap>
+
     <insert id="insertTask" parameterType="Task" useGeneratedKeys="true" keyProperty="taskId">
         insert into pm_task
             (project_id, requirement_id, creator_id, current_version_id, status, is_deleted, create_time, update_time)
@@ -89,6 +101,24 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
               where access_member.project_id = t.project_id
                 and access_member.user_id = #{userId}
           )
+    </select>
+
+    <select id="selectTaskVersionsForUser" resultMap="TaskVersionResult">
+        select tv.version_id, tv.task_id, tv.version_no, tv.title, tv.description,
+               tv.requirement_version_id, rv.version_no as requirement_version_no,
+               tv.created_by, tv.create_time
+        from pm_task_version tv
+        inner join pm_task t on t.task_id = tv.task_id
+        inner join pm_requirement_version rv on rv.version_id = tv.requirement_version_id
+        where t.is_deleted = 0
+          and t.project_id = #{projectId}
+          and t.task_id = #{taskId}
+          and exists (
+              select 1 from pm_project_member access_member
+              where access_member.project_id = t.project_id
+                and access_member.user_id = #{userId}
+          )
+        order by tv.version_no asc, tv.version_id asc
     </select>
 
     <select id="selectTasksForUser" resultMap="TaskResult">

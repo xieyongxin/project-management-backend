@@ -107,6 +107,10 @@ class TaskMapperXmlTest
             assertEquals("登录", selected.getTitle());
             assertEquals(1, selected.getCurrentVersionNo());
             assertEquals(3, selected.getRequirementVersionNo());
+            List<TaskVersion> versions = mapper.selectTaskVersionsForUser(41L, task.getTaskId(), 21L);
+            assertEquals(1, versions.size());
+            assertEquals(1, versions.get(0).getVersionNo());
+            assertEquals(3, versions.get(0).getRequirementVersionNo());
             assertEquals(1, mapper.selectTaskCategories(task.getTaskId()).size());
             assertEquals("dev", mapper.selectTaskCategories(task.getTaskId()).get(0).getCategoryValue());
             assertEquals(2, mapper.selectTaskOwners(task.getTaskId()).size());
@@ -115,6 +119,7 @@ class TaskMapperXmlTest
             assertEquals(1, mapper.selectActiveTaskCategories().size());
             assertEquals("todo", mapper.selectActiveTaskStatuses().get(0).getDictValue());
             assertEquals(0, mapper.selectTaskForUser(41L, task.getTaskId(), 99L) == null ? 0 : 1);
+            assertEquals(0, mapper.selectTaskVersionsForUser(41L, task.getTaskId(), 99L).size());
             assertEquals(1, mapper.selectTasksForUser(41L, 21L).size());
             assertEquals(0, mapper.selectTasksForUser(41L, 99L).size());
         }

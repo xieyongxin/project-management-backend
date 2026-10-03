@@ -18,9 +18,11 @@ import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.system.domain.Task;
+import com.ruoyi.system.domain.TaskVersion;
 import com.ruoyi.system.service.ITaskService;
 import com.ruoyi.web.domain.project.TaskCreateRequest;
 import com.ruoyi.web.domain.project.TaskView;
+import com.ruoyi.web.domain.project.TaskVersionView;
 
 @RestController
 @RequestMapping("/project/{projectId}/tasks")
@@ -51,6 +53,43 @@ public class TaskController extends BaseController
         TableDataInfo result = getDataTable(tasks);
         result.setRows(tasks.stream().map(TaskView::from).toList());
         return ResponseEntity.ok(result);
+    }
+
+    @PreAuthorize("@ss.hasPermi('project:task:list')")
+    @GetMapping("/{taskId}")
+    public ResponseEntity<?> detail(@PathVariable String projectId, @PathVariable String taskId)
+    {
+        Long parsedProjectId = parseId(projectId);
+        Long parsedTaskId = parseId(taskId);
+        if (parsedProjectId == null || parsedTaskId == null)
+        {
+            return notFound();
+        }
+        Task task = taskService.selectTaskForUser(parsedProjectId, parsedTaskId, getUserId());
+        if (task == null)
+        {
+            return notFound();
+        }
+        return ResponseEntity.ok(success(TaskView.from(task)));
+    }
+
+    @PreAuthorize("@ss.hasPermi('project:task:list')")
+    @GetMapping("/{taskId}/versions")
+    public ResponseEntity<?> versions(@PathVariable String projectId, @PathVariable String taskId)
+    {
+        Long parsedProjectId = parseId(projectId);
+        Long parsedTaskId = parseId(taskId);
+        if (parsedProjectId == null || parsedTaskId == null)
+        {
+            return notFound();
+        }
+        List<TaskVersion> versions = taskService.selectTaskVersionsForUser(parsedProjectId, parsedTaskId,
+            getUserId());
+        if (versions == null)
+        {
+            return notFound();
+        }
+        return ResponseEntity.ok(success(versions.stream().map(TaskVersionView::from).toList()));
     }
 
     @PreAuthorize("@ss.hasPermi('project:task:add')")

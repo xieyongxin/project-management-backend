@@ -197,6 +197,26 @@ class TaskServiceImplTest
         assertNull(SERVICE.selectTasksForUser(41L, 22L));
     }
 
+    @Test
+    void memberCanReadTaskDetailAndVersionsAndNonMemberIsDenied()
+    {
+        Task created = SERVICE.createTask(41L, 21L, 7L, "Title", "Description", "todo",
+            List.of("dev"), List.of(21L));
+
+        Task selected = SERVICE.selectTaskForUser(41L, created.getTaskId(), 21L);
+        List<TaskVersion> versions = SERVICE.selectTaskVersionsForUser(41L, created.getTaskId(), 21L);
+
+        assertEquals("Title", selected.getTitle());
+        assertEquals(1, selected.getCurrentVersionNo());
+        assertEquals(1, versions.size());
+        assertEquals("Title", versions.get(0).getTitle());
+        assertEquals(501L, versions.get(0).getRequirementVersionId());
+        assertNull(SERVICE.selectTaskForUser(41L, created.getTaskId(), 22L));
+        assertNull(SERVICE.selectTaskVersionsForUser(41L, created.getTaskId(), 22L));
+        assertNull(SERVICE.selectTaskForUser(41L, 999L, 21L));
+        assertNull(SERVICE.selectTaskVersionsForUser(41L, 999L, 21L));
+    }
+
     private Project project(String status)
     {
         Project project = new Project();
@@ -468,6 +488,26 @@ class TaskServiceImplTest
                     task.setUpdateTime(rs.getTimestamp("update_time"));
                     return task;
                 }, projectId);
+        }
+
+        @Override
+        public List<TaskVersion> selectTaskVersionsForUser(Long projectId, Long taskId, Long userId)
+        {
+            return jdbc.query("select version_id, task_id, version_no, title, description, "
+                + "requirement_version_id, created_by, create_time from pm_task_version "
+                + "where task_id = ? order by version_no asc, version_id asc", (rs, rowNum) -> {
+                    TaskVersion version = new TaskVersion();
+                    version.setVersionId(rs.getLong("version_id"));
+                    version.setTaskId(rs.getLong("task_id"));
+                    version.setVersionNo(rs.getInt("version_no"));
+                    version.setTitle(rs.getString("title"));
+                    version.setDescription(rs.getString("description"));
+                    version.setRequirementVersionId(rs.getLong("requirement_version_id"));
+                    version.setRequirementVersionNo(1);
+                    version.setCreatedBy(rs.getLong("created_by"));
+                    version.setCreateTime(rs.getTimestamp("create_time"));
+                    return version;
+                }, taskId);
         }
 
         @Override

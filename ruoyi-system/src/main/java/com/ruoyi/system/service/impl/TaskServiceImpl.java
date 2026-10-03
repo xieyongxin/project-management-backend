@@ -161,7 +161,7 @@ public class TaskServiceImpl implements ITaskService
         {
             throw new ServiceException("记录项目操作日志失败");
         }
-        return selectTaskForUser(projectId, task.getTaskId(), creatorId);
+        return selectTaskForUserInternal(projectId, task.getTaskId(), creatorId);
     }
 
     @Override
@@ -187,6 +187,27 @@ public class TaskServiceImpl implements ITaskService
     }
 
     @Override
+    public Task selectTaskForUser(Long projectId, Long taskId, Long userId)
+    {
+        if (!isProjectMember(projectId, userId) || taskId == null)
+        {
+            return null;
+        }
+        return enrichTask(taskMapper.selectTaskForUser(projectId, taskId, userId));
+    }
+
+    @Override
+    public List<TaskVersion> selectTaskVersionsForUser(Long projectId, Long taskId, Long userId)
+    {
+        if (!isProjectMember(projectId, userId) || taskId == null
+            || taskMapper.selectTaskForUser(projectId, taskId, userId) == null)
+        {
+            return null;
+        }
+        return taskMapper.selectTaskVersionsForUser(projectId, taskId, userId);
+    }
+
+    @Override
     public List<SysDictData> selectActiveStatuses(Long projectId, Long userId)
     {
         if (!isProjectMember(projectId, userId))
@@ -206,13 +227,18 @@ public class TaskServiceImpl implements ITaskService
         return taskMapper.selectActiveTaskCategories();
     }
 
-    private Task selectTaskForUser(Long projectId, Long taskId, Long userId)
+    private Task selectTaskForUserInternal(Long projectId, Long taskId, Long userId)
     {
         Task task = taskMapper.selectTaskForUser(projectId, taskId, userId);
+        return enrichTask(task);
+    }
+
+    private Task enrichTask(Task task)
+    {
         if (task != null)
         {
-            task.setCategories(taskMapper.selectTaskCategories(taskId));
-            task.setOwners(taskMapper.selectTaskOwners(taskId));
+            task.setCategories(taskMapper.selectTaskCategories(task.getTaskId()));
+            task.setOwners(taskMapper.selectTaskOwners(task.getTaskId()));
         }
         return task;
     }

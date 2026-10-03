@@ -1,8 +1,8 @@
-package com.ruoyi.system.domain;
+package com.ruoyi.web.domain.project;
 
-import java.util.Date;
+import com.ruoyi.system.domain.TaskVersion;
 
-public class TaskVersion
+public class TaskVersionView
 {
     private Long versionId;
     private Long taskId;
@@ -12,7 +12,22 @@ public class TaskVersion
     private Long requirementVersionId;
     private Integer requirementVersionNo;
     private Long createdBy;
-    private Date createTime;
+    private java.util.Date createTime;
+
+    public static TaskVersionView from(TaskVersion version)
+    {
+        TaskVersionView view = new TaskVersionView();
+        view.setVersionId(version.getVersionId());
+        view.setTaskId(version.getTaskId());
+        view.setVersionNo(version.getVersionNo());
+        view.setTitle(version.getTitle());
+        view.setDescription(version.getDescription());
+        view.setRequirementVersionId(version.getRequirementVersionId());
+        view.setRequirementVersionNo(version.getRequirementVersionNo());
+        view.setCreatedBy(version.getCreatedBy());
+        view.setCreateTime(version.getCreateTime());
+        return view;
+    }
 
     public Long getVersionId() { return versionId; }
     public void setVersionId(Long versionId) { this.versionId = versionId; }
@@ -30,6 +45,6 @@ public class TaskVersion
     public void setRequirementVersionNo(Integer requirementVersionNo) { this.requirementVersionNo = requirementVersionNo; }
     public Long getCreatedBy() { return createdBy; }
     public void setCreatedBy(Long createdBy) { this.createdBy = createdBy; }
-    public Date getCreateTime() { return createTime; }
-    public void setCreateTime(Date createTime) { this.createTime = createTime; }
+    public java.util.Date getCreateTime() { return createTime; }
+    public void setCreateTime(java.util.Date createTime) { this.createTime = createTime; }
 }

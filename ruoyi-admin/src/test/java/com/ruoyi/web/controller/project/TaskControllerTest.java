@@ -26,9 +26,11 @@ import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.core.domain.model.LoginUser;
 import com.ruoyi.system.domain.Task;
+import com.ruoyi.system.domain.TaskVersion;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.system.service.ITaskService;
 import com.ruoyi.web.domain.project.TaskCreateRequest;
+import com.ruoyi.web.domain.project.TaskVersionView;
 
 class TaskControllerTest
 {
@@ -52,10 +54,20 @@ class TaskControllerTest
         org.springframework.security.access.prepost.PreAuthorize create = TaskController.class
             .getMethod("create", String.class, TaskCreateRequest.class)
             .getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class);
+        org.springframework.security.access.prepost.PreAuthorize detail = TaskController.class
+            .getMethod("detail", String.class, String.class)
+            .getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class);
+        org.springframework.security.access.prepost.PreAuthorize versions = TaskController.class
+            .getMethod("versions", String.class, String.class)
+            .getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class);
         assertNotNull(list);
         assertNotNull(options);
         assertNotNull(create);
+        assertNotNull(detail);
+        assertNotNull(versions);
         assertEquals("@ss.hasPermi('project:task:list')", list.value());
+        assertEquals("@ss.hasPermi('project:task:list')", detail.value());
+        assertEquals("@ss.hasPermi('project:task:list')", versions.value());
         assertEquals("@ss.hasPermi('project:task:add')", options.value());
         assertEquals("@ss.hasPermi('project:task:add')", create.value());
     }
@@ -79,6 +91,53 @@ class TaskControllerTest
         when(taskService.selectTasksForUser(41L, 23L)).thenReturn(null);
         assertEquals(404, controller.list("41").getStatusCode().value());
         assertEquals(404, controller.list("bad").getStatusCode().value());
+    }
+
+    @Test
+    void memberCanReadTaskDetailAndVersionsAndNonMemberGets404()
+    {
+        setCurrentUser(23L);
+        Task task = new Task();
+        task.setTaskId(8L);
+        task.setTitle("登录");
+        TaskVersion version = new TaskVersion();
+        version.setVersionId(18L);
+        version.setTaskId(8L);
+        version.setVersionNo(1);
+        version.setTitle("登录");
+        version.setDescription("正文");
+        version.setRequirementVersionId(28L);
+        version.setRequirementVersionNo(2);
+        when(taskService.selectTaskForUser(41L, 8L, 23L)).thenReturn(task);
+        when(taskService.selectTaskVersionsForUser(41L, 8L, 23L)).thenReturn(List.of(version));
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(new MockHttpServletRequest()));
+
+        ResponseEntity<?> detail = controller.detail("41", "8");
+        ResponseEntity<?> versions = controller.versions("41", "8");
+
+        assertEquals(200, detail.getStatusCode().value());
+        assertEquals(8L, ((com.ruoyi.web.domain.project.TaskView) ((java.util.Map<?, ?>) detail.getBody())
+            .get("data")).getTaskId());
+        assertEquals(200, versions.getStatusCode().value());
+        TaskVersionView versionView = (TaskVersionView) ((List<?>) ((java.util.Map<?, ?>) versions.getBody())
+            .get("data")).get(0);
+        assertEquals(2, versionView.getRequirementVersionNo());
+
+        when(taskService.selectTaskForUser(41L, 8L, 23L)).thenReturn(null);
+        when(taskService.selectTaskVersionsForUser(41L, 8L, 23L)).thenReturn(null);
+        assertEquals(404, controller.detail("41", "8").getStatusCode().value());
+        assertEquals(404, controller.versions("41", "8").getStatusCode().value());
+        verify(taskService, org.mockito.Mockito.times(2)).selectTaskForUser(41L, 8L, 23L);
+        verify(taskService, org.mockito.Mockito.times(2)).selectTaskVersionsForUser(41L, 8L, 23L);
+    }
+
+    @Test
+    void malformedTaskIdsDoNotQueryService()
+    {
+        setCurrentUser(23L);
+        assertEquals(404, controller.detail("bad", "8").getStatusCode().value());
+        assertEquals(404, controller.versions("41", "bad").getStatusCode().value());
+        org.mockito.Mockito.verifyNoInteractions(taskService);
     }
 
     @Test
