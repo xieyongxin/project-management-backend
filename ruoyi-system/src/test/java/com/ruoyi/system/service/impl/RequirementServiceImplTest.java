@@ -128,6 +128,45 @@ class RequirementServiceImplTest
     }
 
     @Test
+    void memberCanCompareTwoRequirementVersionsAndVersionsMustBelongToRequirement()
+    {
+        Requirement created = SERVICE.createRequirement(41L, 21L, "旧标题", "旧正文", "todo", List.of(21L));
+        RequirementVersion second = new RequirementVersion();
+        second.setRequirementId(created.getRequirementId());
+        second.setVersionNo(2);
+        second.setTitle("新标题");
+        second.setContent("新正文");
+        second.setAttachmentSnapshot("[{\"name\":\"new.txt\"}]");
+        second.setCreatedBy(21L);
+        second.setCreateTime(new Date());
+        REQUIREMENT_MAPPER.insertRequirementVersion(second);
+
+        List<RequirementVersion> comparison = SERVICE.compareRequirementVersionsForUser(41L,
+            created.getRequirementId(), created.getCurrentVersionId(), second.getVersionId(), 21L);
+
+        assertEquals(List.of("旧标题", "新标题"), comparison.stream().map(RequirementVersion::getTitle).toList());
+        assertEquals("[{\"name\":\"new.txt\"}]", comparison.get(1).getAttachmentSnapshot());
+        assertNull(SERVICE.compareRequirementVersionsForUser(41L, created.getRequirementId(),
+            501L, second.getVersionId(), 21L));
+        assertNull(SERVICE.compareRequirementVersionsForUser(41L, created.getRequirementId(),
+            created.getCurrentVersionId(), 999L, 21L));
+        assertNull(SERVICE.compareRequirementVersionsForUser(41L, created.getRequirementId(),
+            created.getCurrentVersionId(), second.getVersionId(), 22L));
+    }
+
+    @Test
+    void comparingSameRequirementVersionIsRejected()
+    {
+        Requirement created = SERVICE.createRequirement(41L, 21L, "标题", "正文", "todo", List.of(21L));
+        ServiceException error = assertThrows(ServiceException.class,
+            () -> SERVICE.compareRequirementVersionsForUser(41L, created.getRequirementId(),
+                created.getCurrentVersionId(), created.getCurrentVersionId(), 21L));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getCode());
+        assertNull(SERVICE.compareRequirementVersionsForUser(41L, 999L, 18L, 18L, 21L));
+    }
+
+    @Test
     void requirementCreationValidatesMembershipStatusAndArchive()
     {
         ServiceException nonMember = assertThrows(ServiceException.class,

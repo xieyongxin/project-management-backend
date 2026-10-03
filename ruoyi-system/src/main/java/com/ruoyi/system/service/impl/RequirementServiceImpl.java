@@ -232,6 +232,30 @@ public class RequirementServiceImpl implements IRequirementService
     }
 
     @Override
+    public List<RequirementVersion> compareRequirementVersionsForUser(Long projectId, Long requirementId,
+        Long leftVersionId, Long rightVersionId, Long userId)
+    {
+        List<RequirementVersion> versions = selectRequirementVersionsForUser(projectId, requirementId, userId);
+        if (versions == null)
+        {
+            return null;
+        }
+        if (leftVersionId == null || rightVersionId == null || leftVersionId.equals(rightVersionId))
+        {
+            throw new ServiceException("需求版本对比必须选择两个不同版本", HttpStatus.BAD_REQUEST);
+        }
+        RequirementVersion left = versions.stream().filter(version -> leftVersionId.equals(version.getVersionId()))
+            .findFirst().orElse(null);
+        RequirementVersion right = versions.stream().filter(version -> rightVersionId.equals(version.getVersionId()))
+            .findFirst().orElse(null);
+        if (left == null || right == null)
+        {
+            return null;
+        }
+        return List.of(left, right);
+    }
+
+    @Override
     public List<SysDictData> selectActiveStatuses(Long projectId, Long userId)
     {
         if (projectId == null || userId == null || projectMapper.selectProjectForUser(projectId, userId) == null)

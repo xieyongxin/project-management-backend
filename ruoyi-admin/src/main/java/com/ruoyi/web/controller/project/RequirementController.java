@@ -1,6 +1,7 @@
 package com.ruoyi.web.controller.project;
 
 import java.util.List;
+import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import com.ruoyi.common.constant.HttpStatus;
 import com.ruoyi.common.core.controller.BaseController;
@@ -91,6 +93,38 @@ public class RequirementController extends BaseController
             return notFound();
         }
         return ResponseEntity.ok(success(versions.stream().map(RequirementVersionView::from).toList()));
+    }
+
+    @PreAuthorize("@ss.hasPermi('project:requirement:list')")
+    @GetMapping("/{requirementId}/versions/compare")
+    public ResponseEntity<?> compareVersions(@PathVariable String projectId, @PathVariable String requirementId,
+        @RequestParam String leftVersionId, @RequestParam String rightVersionId)
+    {
+        Long parsedProjectId = parseId(projectId);
+        Long parsedRequirementId = parseId(requirementId);
+        Long parsedLeftVersionId = parseId(leftVersionId);
+        Long parsedRightVersionId = parseId(rightVersionId);
+        if (parsedProjectId == null || parsedRequirementId == null || parsedLeftVersionId == null
+            || parsedRightVersionId == null)
+        {
+            return notFound();
+        }
+        try
+        {
+            List<com.ruoyi.system.domain.RequirementVersion> versions = requirementService
+                .compareRequirementVersionsForUser(parsedProjectId, parsedRequirementId, parsedLeftVersionId,
+                    parsedRightVersionId, getUserId());
+            if (versions == null)
+            {
+                return notFound();
+            }
+            return ResponseEntity.ok(success(Map.of("left", RequirementVersionView.from(versions.get(0)),
+                "right", RequirementVersionView.from(versions.get(1)))));
+        }
+        catch (ServiceException e)
+        {
+            return serviceError(e);
+        }
     }
 
     @PreAuthorize("@ss.hasPermi('project:requirement:status')")

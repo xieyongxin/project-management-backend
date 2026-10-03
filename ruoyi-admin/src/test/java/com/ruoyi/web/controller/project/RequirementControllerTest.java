@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -66,10 +67,15 @@ class RequirementControllerTest
             .getAnnotation(PreAuthorize.class);
         PreAuthorize versions = RequirementController.class.getMethod("versions", String.class, String.class)
             .getAnnotation(PreAuthorize.class);
+        PreAuthorize compareVersions = RequirementController.class
+            .getMethod("compareVersions", String.class, String.class, String.class, String.class)
+            .getAnnotation(PreAuthorize.class);
         assertNotNull(detail);
         assertEquals("@ss.hasPermi('project:requirement:list')", detail.value());
         assertNotNull(versions);
         assertEquals("@ss.hasPermi('project:requirement:list')", versions.value());
+        assertNotNull(compareVersions);
+        assertEquals("@ss.hasPermi('project:requirement:list')", compareVersions.value());
         PreAuthorize updateStatus = RequirementController.class
             .getMethod("updateStatus", String.class, String.class, RequirementStatusUpdateRequest.class)
             .getAnnotation(PreAuthorize.class);
@@ -157,11 +163,45 @@ class RequirementControllerTest
     }
 
     @Test
+    void memberCanCompareTwoRequirementVersionsAndNonMemberGets404()
+    {
+        setCurrentUser(23L);
+        RequirementVersion left = new RequirementVersion();
+        left.setVersionId(18L);
+        left.setRequirementId(8L);
+        left.setVersionNo(1);
+        left.setTitle("旧标题");
+        left.setContent("旧正文");
+        RequirementVersion right = new RequirementVersion();
+        right.setVersionId(19L);
+        right.setRequirementId(8L);
+        right.setVersionNo(2);
+        right.setTitle("新标题");
+        right.setContent("新正文");
+        when(requirementService.compareRequirementVersionsForUser(41L, 8L, 18L, 19L, 23L))
+            .thenReturn(List.of(left, right));
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(new MockHttpServletRequest()));
+
+        ResponseEntity<?> response = controller.compareVersions("41", "8", "18", "19");
+
+        assertEquals(200, response.getStatusCode().value());
+        Map<?, ?> data = (Map<?, ?>) ((AjaxResult) response.getBody()).get("data");
+        assertEquals("旧标题", ((com.ruoyi.web.domain.project.RequirementVersionView) data.get("left")).getTitle());
+        assertEquals("新正文", ((com.ruoyi.web.domain.project.RequirementVersionView) data.get("right")).getContent());
+
+        when(requirementService.compareRequirementVersionsForUser(41L, 8L, 18L, 19L, 23L)).thenReturn(null);
+        assertEquals(404, controller.compareVersions("41", "8", "18", "19").getStatusCode().value());
+        verify(requirementService, org.mockito.Mockito.times(2))
+            .compareRequirementVersionsForUser(41L, 8L, 18L, 19L, 23L);
+    }
+
+    @Test
     void malformedRequirementIdsDoNotQueryService()
     {
         setCurrentUser(23L);
         assertEquals(404, controller.detail("bad", "8").getStatusCode().value());
         assertEquals(404, controller.versions("41", "bad").getStatusCode().value());
+        assertEquals(404, controller.compareVersions("41", "8", "bad", "19").getStatusCode().value());
         assertEquals(404, controller.updateStatus("41", "bad", statusRequest()).getStatusCode().value());
         verifyNoInteractions(requirementService);
     }
@@ -193,6 +233,19 @@ class RequirementControllerTest
 
         assertEquals(400, response.getStatusCode().value());
         assertEquals(HttpStatus.BAD_REQUEST, response.getBody().get("code"));
+    }
+
+    @Test
+    void comparingSameRequirementVersionUsesBadRequest()
+    {
+        setCurrentUser(23L);
+        doThrow(new ServiceException("需求版本对比必须选择两个不同版本", HttpStatus.BAD_REQUEST))
+            .when(requirementService).compareRequirementVersionsForUser(41L, 8L, 18L, 18L, 23L);
+
+        ResponseEntity<?> response = controller.compareVersions("41", "8", "18", "18");
+
+        assertEquals(400, response.getStatusCode().value());
+        assertEquals(HttpStatus.BAD_REQUEST, ((AjaxResult) response.getBody()).get("code"));
     }
 
     @Test

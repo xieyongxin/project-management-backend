@@ -18,5 +18,8 @@ public interface IRequirementService
 
     List<RequirementVersion> selectRequirementVersionsForUser(Long projectId, Long requirementId, Long userId);
 
+    List<RequirementVersion> compareRequirementVersionsForUser(Long projectId, Long requirementId,
+        Long leftVersionId, Long rightVersionId, Long userId);
+
     List<SysDictData> selectActiveStatuses(Long projectId, Long userId);
 }
