@@ -157,7 +157,13 @@ public class SysRoleController extends BaseController
         roleService.checkRoleAllowed(role);
         roleService.checkRoleDataScope(role.getRoleId());
         role.setUpdateBy(getUsername());
-        return toAjax(roleService.updateRoleStatus(role));
+        int rows = roleService.updateRoleStatus(role);
+        if (rows > 0)
+        {
+            // 角色启用或停用后，立即刷新持有该角色的在线用户权限
+            tokenService.refreshPermissionByRoleId(role.getRoleId(), permissionService);
+        }
+        return toAjax(rows);
     }
 
     /**

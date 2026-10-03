@@ -19,6 +19,7 @@ import com.ruoyi.common.utils.http.UserAgentUtils;
 import com.ruoyi.common.utils.ip.AddressUtils;
 import com.ruoyi.common.utils.ip.IpUtils;
 import com.ruoyi.common.utils.uuid.IdUtils;
+import com.ruoyi.system.service.ISysRoleService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -54,6 +55,9 @@ public class TokenService
 
     @Autowired
     private RedisCache redisCache;
+
+    @Autowired
+    private ISysRoleService roleService;
 
     /**
      * 获取用户身份信息
@@ -261,6 +265,8 @@ public class TokenService
             {
                 continue;
             }
+            // 角色状态可能刚刚发生变化，重新读取角色信息后再计算权限
+            loginUser.getUser().setRoles(roleService.selectRolesByUserId(loginUser.getUserId()));
             // 刷新权限缓存
             loginUser.setPermissions(permissionService.getMenuPermission(loginUser.getUser()));
             refreshToken(loginUser);
