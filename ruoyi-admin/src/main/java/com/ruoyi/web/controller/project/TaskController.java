@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.ruoyi.common.constant.HttpStatus;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.system.domain.Task;
@@ -30,6 +31,26 @@ public class TaskController extends BaseController
     public TaskController(ITaskService taskService)
     {
         this.taskService = taskService;
+    }
+
+    @PreAuthorize("@ss.hasPermi('project:task:list')")
+    @GetMapping
+    public ResponseEntity<?> list(@PathVariable String projectId)
+    {
+        Long parsedProjectId = parseId(projectId);
+        if (parsedProjectId == null)
+        {
+            return notFound();
+        }
+        startPage();
+        List<Task> tasks = taskService.selectTasksForUser(parsedProjectId, getUserId());
+        if (tasks == null)
+        {
+            return notFound();
+        }
+        TableDataInfo result = getDataTable(tasks);
+        result.setRows(tasks.stream().map(TaskView::from).toList());
+        return ResponseEntity.ok(result);
     }
 
     @PreAuthorize("@ss.hasPermi('project:task:add')")

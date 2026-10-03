@@ -115,6 +115,8 @@ class TaskMapperXmlTest
             assertEquals(1, mapper.selectActiveTaskCategories().size());
             assertEquals("todo", mapper.selectActiveTaskStatuses().get(0).getDictValue());
             assertEquals(0, mapper.selectTaskForUser(41L, task.getTaskId(), 99L) == null ? 0 : 1);
+            assertEquals(1, mapper.selectTasksForUser(41L, 21L).size());
+            assertEquals(0, mapper.selectTasksForUser(41L, 99L).size());
         }
     }
 

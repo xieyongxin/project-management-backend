@@ -91,6 +91,17 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
           )
     </select>
 
+    <select id="selectTasksForUser" resultMap="TaskResult">
+        <include refid="selectTaskColumns" />
+          and t.project_id = #{projectId}
+          and exists (
+              select 1 from pm_project_member access_member
+              where access_member.project_id = t.project_id
+                and access_member.user_id = #{userId}
+          )
+        order by t.create_time desc, t.task_id desc
+    </select>
+
     <select id="selectTaskCategories" resultMap="TaskCategoryResult">
         select c.task_id, c.category_value,
                d.dict_label as category_label

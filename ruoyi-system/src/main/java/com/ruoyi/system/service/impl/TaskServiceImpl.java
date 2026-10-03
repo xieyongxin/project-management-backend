@@ -165,6 +165,28 @@ public class TaskServiceImpl implements ITaskService
     }
 
     @Override
+    public List<Task> selectTasksForUser(Long projectId, Long userId)
+    {
+        if (projectId == null || userId == null)
+        {
+            return null;
+        }
+        List<Task> tasks = taskMapper.selectTasksForUser(projectId, userId);
+        if (projectMapper.selectProjectForUser(projectId, userId) == null)
+        {
+            return null;
+        }
+        if (tasks != null)
+        {
+            tasks.forEach(task -> {
+                task.setCategories(taskMapper.selectTaskCategories(task.getTaskId()));
+                task.setOwners(taskMapper.selectTaskOwners(task.getTaskId()));
+            });
+        }
+        return tasks;
+    }
+
+    @Override
     public List<SysDictData> selectActiveStatuses(Long projectId, Long userId)
     {
         if (!isProjectMember(projectId, userId))

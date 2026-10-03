@@ -26,6 +26,7 @@ import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.core.domain.model.LoginUser;
 import com.ruoyi.system.domain.Task;
+import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.system.service.ITaskService;
 import com.ruoyi.web.domain.project.TaskCreateRequest;
 
@@ -44,15 +45,40 @@ class TaskControllerTest
     @Test
     void taskEndpointsDeclarePermission() throws NoSuchMethodException
     {
+        org.springframework.security.access.prepost.PreAuthorize list = TaskController.class
+            .getMethod("list", String.class).getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class);
         org.springframework.security.access.prepost.PreAuthorize options = TaskController.class
             .getMethod("options", String.class).getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class);
         org.springframework.security.access.prepost.PreAuthorize create = TaskController.class
             .getMethod("create", String.class, TaskCreateRequest.class)
             .getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class);
+        assertNotNull(list);
         assertNotNull(options);
         assertNotNull(create);
+        assertEquals("@ss.hasPermi('project:task:list')", list.value());
         assertEquals("@ss.hasPermi('project:task:add')", options.value());
         assertEquals("@ss.hasPermi('project:task:add')", create.value());
+    }
+
+    @Test
+    void memberCanListTasksAndNonMemberGets404()
+    {
+        setCurrentUser(23L);
+        Task task = new Task();
+        task.setTaskId(8L);
+        task.setTitle("登录");
+        when(taskService.selectTasksForUser(41L, 23L)).thenReturn(List.of(task));
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(new MockHttpServletRequest()));
+
+        ResponseEntity<?> response = controller.list("41");
+
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals(1, ((TableDataInfo) response.getBody()).getTotal());
+        verify(taskService).selectTasksForUser(41L, 23L);
+
+        when(taskService.selectTasksForUser(41L, 23L)).thenReturn(null);
+        assertEquals(404, controller.list("41").getStatusCode().value());
+        assertEquals(404, controller.list("bad").getStatusCode().value());
     }
 
     @Test
@@ -144,7 +170,7 @@ class TaskControllerTest
     {
         LoginUser user = new LoginUser();
         user.setUserId(userId);
-        user.setPermissions(Set.of("project:task:add"));
+        user.setPermissions(Set.of("project:task:add", "project:task:list"));
         SecurityContextHolder.getContext().setAuthentication(
             new UsernamePasswordAuthenticationToken(user, "", List.of()));
     }

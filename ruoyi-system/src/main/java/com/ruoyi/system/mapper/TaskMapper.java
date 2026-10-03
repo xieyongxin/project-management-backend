@@ -23,6 +23,8 @@ public interface TaskMapper
     Task selectTaskForUser(@Param("projectId") Long projectId, @Param("taskId") Long taskId,
         @Param("userId") Long userId);
 
+    List<Task> selectTasksForUser(@Param("projectId") Long projectId, @Param("userId") Long userId);
+
     List<TaskCategory> selectTaskCategories(@Param("taskId") Long taskId);
 
     List<TaskOwner> selectTaskOwners(@Param("taskId") Long taskId);

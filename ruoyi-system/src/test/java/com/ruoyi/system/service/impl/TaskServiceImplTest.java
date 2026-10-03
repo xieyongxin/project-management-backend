@@ -184,6 +184,19 @@ class TaskServiceImplTest
         assertNull(SERVICE.selectActiveCategories(41L, 22L));
     }
 
+    @Test
+    void memberCanListTasksWithOwnersAndNonMemberIsDenied()
+    {
+        SERVICE.createTask(41L, 21L, 7L, "Title", "Description", "todo", List.of("dev"), List.of(21L));
+
+        List<Task> tasks = SERVICE.selectTasksForUser(41L, 21L);
+
+        assertEquals(1, tasks.size());
+        assertEquals("Title", tasks.get(0).getTitle());
+        assertEquals(List.of(21L), tasks.get(0).getOwners().stream().map(TaskOwner::getUserId).toList());
+        assertNull(SERVICE.selectTasksForUser(41L, 22L));
+    }
+
     private Project project(String status)
     {
         Project project = new Project();
@@ -428,6 +441,33 @@ class TaskServiceImplTest
                 }, projectId, taskId);
             if (tasks.isEmpty()) return null;
             return tasks.get(0);
+        }
+
+        @Override
+        public List<Task> selectTasksForUser(Long projectId, Long userId)
+        {
+            return jdbc.query("select t.*, v.version_no, v.title, v.description, v.requirement_version_id "
+                + "from pm_task t inner join pm_task_version v on v.version_id = t.current_version_id "
+                + "where t.project_id = ? and t.is_deleted = 0 order by t.create_time desc, t.task_id desc",
+                (rs, rowNum) -> {
+                    Task task = new Task();
+                    task.setTaskId(rs.getLong("task_id"));
+                    task.setProjectId(rs.getLong("project_id"));
+                    task.setRequirementId(rs.getLong("requirement_id"));
+                    task.setCreatorId(rs.getLong("creator_id"));
+                    task.setCurrentVersionId(rs.getLong("current_version_id"));
+                    task.setCurrentVersionNo(rs.getInt("version_no"));
+                    task.setRequirementVersionId(rs.getLong("requirement_version_id"));
+                    task.setRequirementVersionNo(1);
+                    task.setTitle(rs.getString("title"));
+                    task.setDescription(rs.getString("description"));
+                    task.setStatus(rs.getString("status"));
+                    task.setStatusLabel(statuses.get(task.getStatus()).getDictLabel());
+                    task.setIsDeleted(rs.getInt("is_deleted"));
+                    task.setCreateTime(rs.getTimestamp("create_time"));
+                    task.setUpdateTime(rs.getTimestamp("update_time"));
+                    return task;
+                }, projectId);
         }
 
         @Override
