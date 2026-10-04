@@ -979,9 +979,9 @@
 
 状态：验收通过
 
-后端提交：待提交
+后端提交：`23fb5564`
 
-前端提交：待提交
+前端提交：`c13148ac`
 
 验证记录：见 `doc/plans/PM-0037.md`；后端 Maven package、前端 `npm run build:prod` 和 `git diff --check` 通过；远程测试库已备份并应用 `sql/pm_0037_agent.sql`；真实 HTTP 验收覆盖未确认拒绝、需求 v2 锁定、调用记录、`AGENT_CALL` 日志、幂等重复调用和非成员隔离，临时数据已清理。
 
