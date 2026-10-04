@@ -286,6 +286,51 @@ class TaskServiceImplTest
     }
 
     @Test
+    void memberCanUpdateTaskAgainstLatestRequirementVersion()
+    {
+        Task created = SERVICE.createTask(41L, 21L, 7L, "旧标题", "旧说明", "todo",
+            List.of("dev"), List.of(21L));
+        REQUIREMENT_MAPPER.requirement.setCurrentVersionId(502L);
+
+        Task updated = SERVICE.updateTaskToLatestRequirement(41L, created.getTaskId(), 21L,
+            "新标题", "新说明");
+
+        assertEquals("新标题", updated.getTitle());
+        assertEquals("新说明", updated.getDescription());
+        assertEquals(2, updated.getCurrentVersionNo());
+        assertEquals(502L, updated.getRequirementVersionId());
+        assertEquals(2, SERVICE.selectTaskVersionsForUser(41L, created.getTaskId(), 21L).size());
+        assertEquals("TASK_VERSION_UPDATE", LOG_MAPPER.logs.get(LOG_MAPPER.logs.size() - 1).getOperationType());
+    }
+
+    @Test
+    void taskVersionUpdateValidatesMemberArchiveDeletedAndLogRollback()
+    {
+        Task created = SERVICE.createTask(41L, 21L, 7L, "标题", "说明", "todo",
+            List.of("dev"), List.of(21L));
+        REQUIREMENT_MAPPER.requirement.setCurrentVersionId(502L);
+
+        ServiceException nonMember = assertThrows(ServiceException.class,
+            () -> SERVICE.updateTaskToLatestRequirement(41L, created.getTaskId(), 22L, "新标题", "新说明"));
+        ServiceException archived = assertThrows(ServiceException.class,
+            () -> SERVICE.updateTaskToLatestRequirement(41L, created.getTaskId(), 99L, "新标题", "新说明"));
+        assertEquals(HttpStatus.NOT_FOUND, nonMember.getCode());
+        assertEquals(HttpStatus.BAD_REQUEST, archived.getCode());
+
+        LOG_MAPPER.failNextInsert.set(true);
+        assertThrows(IllegalStateException.class,
+            () -> SERVICE.updateTaskToLatestRequirement(41L, created.getTaskId(), 21L, "新标题", "新说明"));
+        assertEquals(1, count("pm_task_version"));
+        assertEquals(created.getCurrentVersionId(), JDBC.queryForObject(
+            "select current_version_id from pm_task where task_id = ?", Long.class, created.getTaskId()));
+
+        SERVICE.deleteTask(41L, created.getTaskId(), 21L);
+        ServiceException deleted = assertThrows(ServiceException.class,
+            () -> SERVICE.updateTaskToLatestRequirement(41L, created.getTaskId(), 21L, "再次", "再次"));
+        assertEquals(HttpStatus.BAD_REQUEST, deleted.getCode());
+    }
+
+    @Test
     void memberCanCompareTwoTaskVersionsAndVersionsMustBelongToTask()
     {
         Task created = SERVICE.createTask(41L, 21L, 7L, "旧标题", "旧说明", "todo",

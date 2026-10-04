@@ -33,6 +33,7 @@ import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.system.service.ITaskService;
 import com.ruoyi.web.domain.project.TaskCreateRequest;
 import com.ruoyi.web.domain.project.TaskStatusUpdateRequest;
+import com.ruoyi.web.domain.project.TaskVersionUpdateRequest;
 import com.ruoyi.web.domain.project.TaskVersionView;
 
 class TaskControllerTest
@@ -69,6 +70,9 @@ class TaskControllerTest
         org.springframework.security.access.prepost.PreAuthorize updateStatus = TaskController.class
             .getMethod("updateStatus", String.class, String.class, TaskStatusUpdateRequest.class)
             .getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class);
+        org.springframework.security.access.prepost.PreAuthorize updateLatestVersion = TaskController.class
+            .getMethod("updateLatestVersion", String.class, String.class, TaskVersionUpdateRequest.class)
+            .getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class);
         org.springframework.security.access.prepost.PreAuthorize delete = TaskController.class
             .getMethod("delete", String.class, String.class)
             .getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class);
@@ -79,12 +83,14 @@ class TaskControllerTest
         assertNotNull(versions);
         assertNotNull(compareVersions);
         assertNotNull(updateStatus);
+        assertNotNull(updateLatestVersion);
         assertNotNull(delete);
         assertEquals("@ss.hasPermi('project:task:list')", list.value());
         assertEquals("@ss.hasPermi('project:task:list')", detail.value());
         assertEquals("@ss.hasPermi('project:task:list')", versions.value());
         assertEquals("@ss.hasPermi('project:task:list')", compareVersions.value());
         assertEquals("@ss.hasPermi('project:task:status')", updateStatus.value());
+        assertEquals("@ss.hasPermi('project:task:edit')", updateLatestVersion.value());
         assertEquals("@ss.hasPermi('project:task:delete')", delete.value());
         assertEquals("@ss.hasPermi('project:task:add')", options.value());
         assertEquals("@ss.hasPermi('project:task:add')", create.value());
@@ -188,6 +194,7 @@ class TaskControllerTest
         assertEquals(404, controller.versions("41", "bad").getStatusCode().value());
         assertEquals(404, controller.compareVersions("41", "8", "bad", "19").getStatusCode().value());
         assertEquals(404, controller.updateStatus("41", "bad", statusRequest()).getStatusCode().value());
+        assertEquals(404, controller.updateLatestVersion("41", "bad", versionUpdateRequest()).getStatusCode().value());
         org.mockito.Mockito.verifyNoInteractions(taskService);
     }
 
@@ -205,6 +212,23 @@ class TaskControllerTest
         assertEquals(200, response.getStatusCode().value());
         assertEquals(8L, ((com.ruoyi.web.domain.project.TaskView) response.getBody().get("data")).getTaskId());
         verify(taskService).updateTaskStatus(41L, 8L, 23L, "doing");
+    }
+
+    @Test
+    void memberCanUpdateTaskLatestVersion()
+    {
+        setCurrentUser(23L);
+        Task task = new Task();
+        task.setTaskId(8L);
+        task.setTitle("新标题");
+        when(taskService.updateTaskToLatestRequirement(41L, 8L, 23L, "新标题", "新说明"))
+            .thenReturn(task);
+
+        ResponseEntity<AjaxResult> response = controller.updateLatestVersion("41", "8", versionUpdateRequest());
+
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals(8L, ((com.ruoyi.web.domain.project.TaskView) response.getBody().get("data")).getTaskId());
+        verify(taskService).updateTaskToLatestRequirement(41L, 8L, 23L, "新标题", "新说明");
     }
 
     @Test
@@ -359,6 +383,14 @@ class TaskControllerTest
     {
         TaskStatusUpdateRequest request = new TaskStatusUpdateRequest();
         request.setStatus("doing");
+        return request;
+    }
+
+    private TaskVersionUpdateRequest versionUpdateRequest()
+    {
+        TaskVersionUpdateRequest request = new TaskVersionUpdateRequest();
+        request.setTitle("新标题");
+        request.setDescription("新说明");
         return request;
     }
 

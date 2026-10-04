@@ -228,6 +228,99 @@ public class TaskServiceImpl implements ITaskService
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public Task updateTaskToLatestRequirement(Long projectId, Long taskId, Long operatorId,
+        String title, String description)
+    {
+        Project project = projectId == null || operatorId == null
+            ? null : projectMapper.selectProjectForUser(projectId, operatorId);
+        if (project == null)
+        {
+            throw new ServiceException("项目不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        if (Project.STATUS_ARCHIVED.equals(project.getStatus()))
+        {
+            throw new ServiceException("归档项目不能开展新的业务操作", HttpStatus.BAD_REQUEST);
+        }
+
+        Task current = taskId == null ? null : taskMapper.selectTaskForUser(projectId, taskId, operatorId);
+        if (current == null)
+        {
+            throw new ServiceException("任务不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        if (Integer.valueOf(1).equals(current.getIsDeleted()))
+        {
+            throw new ServiceException("已删除任务不能更新", HttpStatus.BAD_REQUEST);
+        }
+
+        String normalizedTitle = title == null ? "" : title.trim();
+        if (normalizedTitle.isEmpty())
+        {
+            throw new ServiceException("任务标题不能为空", HttpStatus.BAD_REQUEST);
+        }
+        if (normalizedTitle.length() > 255)
+        {
+            throw new ServiceException("任务标题长度不能超过255个字符", HttpStatus.BAD_REQUEST);
+        }
+        String normalizedDescription = description == null ? "" : description.trim();
+        if (normalizedDescription.isEmpty())
+        {
+            throw new ServiceException("任务说明不能为空", HttpStatus.BAD_REQUEST);
+        }
+
+        Requirement requirement = requirementMapper.selectRequirementForUser(projectId,
+            current.getRequirementId(), operatorId);
+        if (requirement == null)
+        {
+            throw new ServiceException("需求不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        if (Integer.valueOf(1).equals(requirement.getIsDeleted()))
+        {
+            throw new ServiceException("已删除需求不能更新任务", HttpStatus.BAD_REQUEST);
+        }
+        Long latestRequirementVersionId = requirement.getCurrentVersionId();
+        if (latestRequirementVersionId == null)
+        {
+            throw new ServiceException("需求当前版本不存在", HttpStatus.BAD_REQUEST);
+        }
+
+        boolean contentChanged = !normalizedTitle.equals(current.getTitle())
+            || !normalizedDescription.equals(current.getDescription());
+        boolean requirementChanged = !latestRequirementVersionId.equals(current.getRequirementVersionId());
+        if (!contentChanged && !requirementChanged)
+        {
+            return enrichTask(current);
+        }
+
+        Date now = new Date();
+        TaskVersion version = new TaskVersion();
+        version.setTaskId(taskId);
+        version.setVersionNo((current.getCurrentVersionNo() == null ? 0 : current.getCurrentVersionNo()) + 1);
+        version.setTitle(normalizedTitle);
+        version.setDescription(normalizedDescription);
+        version.setRequirementVersionId(latestRequirementVersionId);
+        version.setCreatedBy(operatorId);
+        version.setCreateTime(now);
+        if (taskMapper.insertTaskVersion(version) != 1
+            || taskMapper.updateCurrentVersion(taskId, version.getVersionId()) != 1)
+        {
+            throw new ServiceException("更新任务版本失败");
+        }
+
+        ProjectOperationLog log = new ProjectOperationLog();
+        log.setProjectId(projectId);
+        log.setOperatorId(operatorId);
+        log.setOperationType("TASK_VERSION_UPDATE");
+        log.setDetail("更新任务内容并关联需求最新版本");
+        log.setCreateTime(now);
+        if (projectOperationLogMapper.insertProjectOperationLog(log) != 1)
+        {
+            throw new ServiceException("记录项目操作日志失败");
+        }
+        return selectTaskForUserInternal(projectId, taskId, operatorId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public Task deleteTask(Long projectId, Long taskId, Long operatorId)
     {
         Project project = projectId == null || operatorId == null

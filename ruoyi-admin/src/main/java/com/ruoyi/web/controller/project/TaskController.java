@@ -25,6 +25,7 @@ import com.ruoyi.system.domain.TaskVersion;
 import com.ruoyi.system.service.ITaskService;
 import com.ruoyi.web.domain.project.TaskCreateRequest;
 import com.ruoyi.web.domain.project.TaskStatusUpdateRequest;
+import com.ruoyi.web.domain.project.TaskVersionUpdateRequest;
 import com.ruoyi.web.domain.project.TaskView;
 import com.ruoyi.web.domain.project.TaskRequirementOptionView;
 import com.ruoyi.web.domain.project.TaskVersionView;
@@ -142,6 +143,29 @@ public class TaskController extends BaseController
         try
         {
             Task task = taskService.updateTaskStatus(parsedProjectId, parsedTaskId, getUserId(), request.getStatus());
+            return ResponseEntity.ok(success(TaskView.from(task)));
+        }
+        catch (ServiceException e)
+        {
+            return serviceError(e);
+        }
+    }
+
+    @PreAuthorize("@ss.hasPermi('project:task:edit')")
+    @PutMapping("/{taskId}/latest-version")
+    public ResponseEntity<AjaxResult> updateLatestVersion(@PathVariable String projectId,
+        @PathVariable String taskId, @Validated @RequestBody TaskVersionUpdateRequest request)
+    {
+        Long parsedProjectId = parseId(projectId);
+        Long parsedTaskId = parseId(taskId);
+        if (parsedProjectId == null || parsedTaskId == null)
+        {
+            return notFound();
+        }
+        try
+        {
+            Task task = taskService.updateTaskToLatestRequirement(parsedProjectId, parsedTaskId, getUserId(),
+                request.getTitle(), request.getDescription());
             return ResponseEntity.ok(success(TaskView.from(task)));
         }
         catch (ServiceException e)

@@ -13,6 +13,9 @@ public interface ITaskService
 
     Task updateTaskStatus(Long projectId, Long taskId, Long operatorId, String status);
 
+    Task updateTaskToLatestRequirement(Long projectId, Long taskId, Long operatorId,
+        String title, String description);
+
     Task deleteTask(Long projectId, Long taskId, Long operatorId);
 
     List<Task> selectTasksForUser(Long projectId, Long userId);
