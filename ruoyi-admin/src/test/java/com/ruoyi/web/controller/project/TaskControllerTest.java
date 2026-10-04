@@ -90,10 +90,11 @@ class TaskControllerTest
         assertEquals("@ss.hasPermi('project:task:list')", versions.value());
         assertEquals("@ss.hasPermi('project:task:list')", compareVersions.value());
         assertEquals("@ss.hasPermi('project:task:status')", updateStatus.value());
-        assertEquals("@ss.hasPermi('project:task:edit')", updateLatestVersion.value());
+        assertEquals("@ss.hasPermi('project:task:edit') or @ss.hasPermi('project:agent:split')",
+            updateLatestVersion.value());
         assertEquals("@ss.hasPermi('project:task:delete')", delete.value());
-        assertEquals("@ss.hasPermi('project:task:add')", options.value());
-        assertEquals("@ss.hasPermi('project:task:add')", create.value());
+        assertEquals("@ss.hasPermi('project:task:add') or @ss.hasPermi('project:agent:split')", options.value());
+        assertEquals("@ss.hasPermi('project:task:add') or @ss.hasPermi('project:agent:split')", create.value());
     }
 
     @Test
