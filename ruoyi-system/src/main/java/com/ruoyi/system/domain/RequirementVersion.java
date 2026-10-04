@@ -1,6 +1,7 @@
 package com.ruoyi.system.domain;
 
 import java.util.Date;
+import java.util.List;
 
 public class RequirementVersion
 {
@@ -13,6 +14,7 @@ public class RequirementVersion
     private Long createdBy;
     private Date createTime;
     private Integer isDeleted;
+    private List<RequirementAttachment> attachments;
 
     public Long getVersionId() { return versionId; }
     public void setVersionId(Long versionId) { this.versionId = versionId; }
@@ -32,4 +34,6 @@ public class RequirementVersion
     public void setCreateTime(Date createTime) { this.createTime = createTime; }
     public Integer getIsDeleted() { return isDeleted; }
     public void setIsDeleted(Integer isDeleted) { this.isDeleted = isDeleted; }
+    public List<RequirementAttachment> getAttachments() { return attachments; }
+    public void setAttachments(List<RequirementAttachment> attachments) { this.attachments = attachments; }
 }

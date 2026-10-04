@@ -2,6 +2,13 @@ package com.ruoyi.web.controller.project;
 
 import java.util.List;
 import java.util.Map;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -21,6 +28,9 @@ import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.system.domain.Requirement;
+import com.ruoyi.system.domain.RequirementAttachment;
+import com.ruoyi.common.config.RuoYiConfig;
+import com.ruoyi.common.utils.file.FileUtils;
 import com.ruoyi.system.service.IRequirementService;
 import com.ruoyi.web.domain.project.RequirementCreateRequest;
 import com.ruoyi.web.domain.project.RequirementContentUpdateRequest;
@@ -95,6 +105,73 @@ public class RequirementController extends BaseController
             return notFound();
         }
         return ResponseEntity.ok(success(versions.stream().map(RequirementVersionView::from).toList()));
+    }
+
+    @PreAuthorize("@ss.hasPermi('project:requirement:edit')")
+    @PostMapping("/{requirementId}/attachments")
+    public ResponseEntity<AjaxResult> uploadAttachments(@PathVariable String projectId,
+        @PathVariable String requirementId, @RequestParam("files") List<MultipartFile> files)
+    {
+        Long parsedProjectId = parseId(projectId);
+        Long parsedRequirementId = parseId(requirementId);
+        if (parsedProjectId == null || parsedRequirementId == null)
+        {
+            return notFound();
+        }
+        try
+        {
+            Requirement requirement = requirementService.updateRequirementAttachments(parsedProjectId,
+                parsedRequirementId, getUserId(), files);
+            return ResponseEntity.ok(success(RequirementView.from(requirement)));
+        }
+        catch (ServiceException e)
+        {
+            return serviceError(e);
+        }
+    }
+
+    @PreAuthorize("@ss.hasPermi('project:requirement:list')")
+    @GetMapping("/{requirementId}/attachments/{attachmentId}")
+    public void attachment(@PathVariable String projectId, @PathVariable String requirementId,
+        @PathVariable String attachmentId, @RequestParam(required = false) String versionId,
+        HttpServletResponse response)
+    {
+        Long parsedProjectId = parseId(projectId);
+        Long parsedRequirementId = parseId(requirementId);
+        Long parsedAttachmentId = parseId(attachmentId);
+        Long parsedVersionId = versionId == null ? null : parseId(versionId);
+        if (parsedProjectId == null || parsedRequirementId == null || parsedAttachmentId == null)
+        {
+            response.setStatus(HttpStatus.NOT_FOUND);
+            return;
+        }
+        List<com.ruoyi.system.domain.RequirementAttachment> attachments = requirementService
+            .selectRequirementAttachmentsForUser(parsedProjectId, parsedRequirementId, getUserId(), parsedVersionId);
+        RequirementAttachment attachment = attachments == null ? null : attachments.stream()
+            .filter(item -> parsedAttachmentId.equals(item.getAttachmentId())).findFirst().orElse(null);
+        if (attachment == null)
+        {
+            response.setStatus(HttpStatus.NOT_FOUND);
+            return;
+        }
+        try
+        {
+            Path path = Paths.get(RuoYiConfig.getProfile(), FileUtils.stripPrefix(attachment.getStoragePath()));
+            if (!Files.isRegularFile(path))
+            {
+                response.setStatus(HttpStatus.NOT_FOUND);
+                return;
+            }
+            response.setContentType(attachment.getContentType() == null ? MediaType.APPLICATION_OCTET_STREAM_VALUE
+                : attachment.getContentType());
+            response.setHeader("Content-Disposition", "inline; filename*=UTF-8''"
+                + java.net.URLEncoder.encode(attachment.getOriginalName(), java.nio.charset.StandardCharsets.UTF_8));
+            Files.copy(path, response.getOutputStream());
+        }
+        catch (IOException e)
+        {
+            response.setStatus(HttpStatus.ERROR);
+        }
     }
 
     @PreAuthorize("@ss.hasPermi('project:requirement:list')")

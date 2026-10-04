@@ -31,6 +31,19 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="isDeleted" column="is_deleted" />
     </resultMap>
 
+    <resultMap type="RequirementAttachment" id="RequirementAttachmentResult">
+        <id property="attachmentId" column="attachment_id" />
+        <result property="requirementId" column="requirement_id" />
+        <result property="versionId" column="version_id" />
+        <result property="originalName" column="original_name" />
+        <result property="storagePath" column="storage_path" />
+        <result property="extension" column="extension" />
+        <result property="contentType" column="content_type" />
+        <result property="fileSize" column="file_size" />
+        <result property="createdBy" column="created_by" />
+        <result property="createTime" column="create_time" />
+    </resultMap>
+
     <insert id="insertRequirement" parameterType="Requirement" useGeneratedKeys="true" keyProperty="requirementId">
         insert into pm_requirement (project_id, creator_id, current_version_id, status, is_deleted, create_time, update_time)
         values (#{projectId}, #{creatorId}, #{currentVersionId}, #{status}, #{isDeleted}, #{createTime}, #{updateTime})
@@ -78,6 +91,33 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         insert into pm_requirement_owner (requirement_id, user_id)
         values (#{requirementId}, #{userId})
     </insert>
+
+    <insert id="insertRequirementAttachment" parameterType="RequirementAttachment"
+        useGeneratedKeys="true" keyProperty="attachmentId">
+        insert into pm_requirement_attachment
+            (requirement_id, version_id, original_name, storage_path, extension, content_type,
+             file_size, created_by, create_time)
+        values
+            (#{requirementId}, #{versionId}, #{originalName}, #{storagePath}, #{extension}, #{contentType},
+             #{fileSize}, #{createdBy}, #{createTime})
+    </insert>
+
+    <update id="updateRequirementAttachmentVersion">
+        update pm_requirement_attachment
+        set version_id = #{versionId}
+        where attachment_id in
+        <foreach collection="attachmentIds" item="attachmentId" open="(" separator="," close=")">
+            #{attachmentId}
+        </foreach>
+    </update>
+
+    <select id="selectRequirementAttachments" resultMap="RequirementAttachmentResult">
+        select attachment_id, requirement_id, version_id, original_name, storage_path,
+               extension, content_type, file_size, created_by, create_time
+        from pm_requirement_attachment
+        where requirement_id = #{requirementId}
+        order by attachment_id asc
+    </select>
 
     <sql id="selectRequirementColumns">
         select r.requirement_id, r.project_id, r.creator_id, r.current_version_id,

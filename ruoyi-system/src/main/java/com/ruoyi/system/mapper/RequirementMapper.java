@@ -6,6 +6,7 @@ import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.system.domain.Requirement;
 import com.ruoyi.system.domain.RequirementOwner;
 import com.ruoyi.system.domain.RequirementVersion;
+import com.ruoyi.system.domain.RequirementAttachment;
 
 public interface RequirementMapper
 {
@@ -41,6 +42,13 @@ public interface RequirementMapper
 
     List<RequirementOwner> selectProjectMembersByIds(@Param("projectId") Long projectId,
         @Param("userIds") List<Long> userIds);
+
+    int insertRequirementAttachment(RequirementAttachment attachment);
+
+    int updateRequirementAttachmentVersion(@Param("versionId") Long versionId,
+        @Param("attachmentIds") List<Long> attachmentIds);
+
+    List<RequirementAttachment> selectRequirementAttachments(@Param("requirementId") Long requirementId);
 
     SysDictData selectActiveRequirementStatus(@Param("status") String status);
 

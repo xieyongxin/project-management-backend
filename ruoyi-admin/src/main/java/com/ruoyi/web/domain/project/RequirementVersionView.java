@@ -1,6 +1,7 @@
 package com.ruoyi.web.domain.project;
 
 import com.ruoyi.system.domain.RequirementVersion;
+import java.util.List;
 
 public class RequirementVersionView
 {
@@ -13,6 +14,7 @@ public class RequirementVersionView
     private Long createdBy;
     private java.util.Date createTime;
     private Integer isDeleted;
+    private List<RequirementAttachmentView> attachments;
 
     public static RequirementVersionView from(RequirementVersion version)
     {
@@ -26,6 +28,8 @@ public class RequirementVersionView
         view.setCreatedBy(version.getCreatedBy());
         view.setCreateTime(version.getCreateTime());
         view.setIsDeleted(version.getIsDeleted());
+        view.setAttachments(version.getAttachments() == null ? List.of()
+            : version.getAttachments().stream().map(RequirementAttachmentView::from).toList());
         return view;
     }
 
@@ -47,4 +51,6 @@ public class RequirementVersionView
     public void setCreateTime(java.util.Date createTime) { this.createTime = createTime; }
     public Integer getIsDeleted() { return isDeleted; }
     public void setIsDeleted(Integer isDeleted) { this.isDeleted = isDeleted; }
+    public List<RequirementAttachmentView> getAttachments() { return attachments; }
+    public void setAttachments(List<RequirementAttachmentView> attachments) { this.attachments = attachments; }
 }

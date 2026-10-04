@@ -18,6 +18,7 @@ public class Requirement
     private Date createTime;
     private Date updateTime;
     private List<RequirementOwner> owners;
+    private List<RequirementAttachment> attachments;
 
     public Long getRequirementId() { return requirementId; }
     public void setRequirementId(Long requirementId) { this.requirementId = requirementId; }
@@ -45,4 +46,6 @@ public class Requirement
     public void setUpdateTime(Date updateTime) { this.updateTime = updateTime; }
     public List<RequirementOwner> getOwners() { return owners; }
     public void setOwners(List<RequirementOwner> owners) { this.owners = owners; }
+    public List<RequirementAttachment> getAttachments() { return attachments; }
+    public void setAttachments(List<RequirementAttachment> attachments) { this.attachments = attachments; }
 }

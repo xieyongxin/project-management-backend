@@ -545,6 +545,9 @@ class RequirementServiceImplTest
 
     static class TestRequirementMapper implements RequirementMapper
     {
+        @Override public int insertRequirementAttachment(com.ruoyi.system.domain.RequirementAttachment attachment) { return 0; }
+        @Override public int updateRequirementAttachmentVersion(Long versionId, List<Long> attachmentIds) { return 0; }
+        @Override public List<com.ruoyi.system.domain.RequirementAttachment> selectRequirementAttachments(Long requirementId) { return List.of(); }
         private final JdbcTemplate jdbc;
         private final Map<String, String> statuses = new HashMap<>();
         private final java.util.Set<String> inactiveStatuses = new java.util.HashSet<>();

@@ -551,6 +551,9 @@ class TaskServiceImplTest
 
     static class TestRequirementMapper implements RequirementMapper
     {
+        @Override public int insertRequirementAttachment(com.ruoyi.system.domain.RequirementAttachment attachment) { return 0; }
+        @Override public int updateRequirementAttachmentVersion(Long versionId, List<Long> attachmentIds) { return 0; }
+        @Override public List<com.ruoyi.system.domain.RequirementAttachment> selectRequirementAttachments(Long requirementId) { return List.of(); }
         private Requirement requirement;
         private final Set<Long> memberIds = new java.util.LinkedHashSet<>();
         private final List<Requirement> availableRequirements = new ArrayList<>();

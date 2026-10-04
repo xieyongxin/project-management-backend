@@ -2,6 +2,7 @@ package com.ruoyi.web.domain.project;
 
 import java.util.List;
 import com.ruoyi.system.domain.Requirement;
+import java.util.List;
 
 public class RequirementView
 {
@@ -18,6 +19,7 @@ public class RequirementView
     private java.util.Date createTime;
     private java.util.Date updateTime;
     private List<RequirementOwnerView> owners;
+    private List<RequirementAttachmentView> attachments;
 
     public static RequirementView from(Requirement requirement)
     {
@@ -36,6 +38,8 @@ public class RequirementView
         view.setUpdateTime(requirement.getUpdateTime());
         view.setOwners(requirement.getOwners() == null ? List.of()
             : requirement.getOwners().stream().map(RequirementOwnerView::from).toList());
+        view.setAttachments(requirement.getAttachments() == null ? List.of()
+            : requirement.getAttachments().stream().map(RequirementAttachmentView::from).toList());
         return view;
     }
 
@@ -65,4 +69,6 @@ public class RequirementView
     public void setUpdateTime(java.util.Date updateTime) { this.updateTime = updateTime; }
     public List<RequirementOwnerView> getOwners() { return owners; }
     public void setOwners(List<RequirementOwnerView> owners) { this.owners = owners; }
+    public List<RequirementAttachmentView> getAttachments() { return attachments; }
+    public void setAttachments(List<RequirementAttachmentView> attachments) { this.attachments = attachments; }
 }
