@@ -151,7 +151,7 @@ public class TaskController extends BaseController
         }
     }
 
-    @PreAuthorize("@ss.hasPermi('project:task:edit')")
+    @PreAuthorize("@ss.hasPermi('project:task:edit') or @ss.hasPermi('project:agent:split')")
     @PutMapping("/{taskId}/latest-version")
     public ResponseEntity<AjaxResult> updateLatestVersion(@PathVariable String projectId,
         @PathVariable String taskId, @Validated @RequestBody TaskVersionUpdateRequest request)
@@ -195,7 +195,7 @@ public class TaskController extends BaseController
         }
     }
 
-    @PreAuthorize("@ss.hasPermi('project:task:add')")
+    @PreAuthorize("@ss.hasPermi('project:task:add') or @ss.hasPermi('project:agent:split')")
     @GetMapping("/options")
     public ResponseEntity<?> options(@PathVariable String projectId)
     {
@@ -216,7 +216,7 @@ public class TaskController extends BaseController
             "requirements", requirements.stream().map(TaskRequirementOptionView::from).toList())));
     }
 
-    @PreAuthorize("@ss.hasPermi('project:task:add')")
+    @PreAuthorize("@ss.hasPermi('project:task:add') or @ss.hasPermi('project:agent:split')")
     @PostMapping
     public ResponseEntity<AjaxResult> create(@PathVariable String projectId,
         @Validated @RequestBody TaskCreateRequest request)
