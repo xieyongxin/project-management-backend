@@ -26,6 +26,7 @@ import com.ruoyi.system.service.ITaskService;
 import com.ruoyi.web.domain.project.TaskCreateRequest;
 import com.ruoyi.web.domain.project.TaskStatusUpdateRequest;
 import com.ruoyi.web.domain.project.TaskView;
+import com.ruoyi.web.domain.project.TaskRequirementOptionView;
 import com.ruoyi.web.domain.project.TaskVersionView;
 
 @RestController
@@ -181,11 +182,14 @@ public class TaskController extends BaseController
         }
         List<SysDictData> statuses = taskService.selectActiveStatuses(parsedProjectId, getUserId());
         List<SysDictData> categories = taskService.selectActiveCategories(parsedProjectId, getUserId());
-        if (statuses == null || categories == null)
+        List<com.ruoyi.system.domain.Requirement> requirements = taskService
+            .selectAvailableRequirements(parsedProjectId, getUserId());
+        if (statuses == null || categories == null || requirements == null)
         {
             return notFound();
         }
-        return ResponseEntity.ok(success(Map.of("statuses", statuses, "categories", categories)));
+        return ResponseEntity.ok(success(Map.of("statuses", statuses, "categories", categories,
+            "requirements", requirements.stream().map(TaskRequirementOptionView::from).toList())));
     }
 
     @PreAuthorize("@ss.hasPermi('project:task:add')")

@@ -28,6 +28,7 @@ import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.core.domain.model.LoginUser;
 import com.ruoyi.system.domain.Task;
 import com.ruoyi.system.domain.TaskVersion;
+import com.ruoyi.system.domain.Requirement;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.system.service.ITaskService;
 import com.ruoyi.web.domain.project.TaskCreateRequest;
@@ -271,8 +272,12 @@ class TaskControllerTest
         status.setDictValue("todo");
         SysDictData category = new SysDictData();
         category.setDictValue("dev");
+        Requirement requirement = new Requirement();
+        requirement.setRequirementId(7L);
+        requirement.setTitle("登录需求");
         when(taskService.selectActiveStatuses(41L, 23L)).thenReturn(List.of(status));
         when(taskService.selectActiveCategories(41L, 23L)).thenReturn(List.of(category));
+        when(taskService.selectAvailableRequirements(41L, 23L)).thenReturn(List.of(requirement));
         Task task = new Task();
         task.setTaskId(8L);
         when(taskService.createTask(41L, 23L, 7L, "登录", "实现登录", "todo", List.of("dev"), List.of(23L)))
@@ -287,6 +292,7 @@ class TaskControllerTest
         assertEquals(8L, ((com.ruoyi.web.domain.project.TaskView) create.getBody().get("data")).getTaskId());
         verify(taskService).selectActiveStatuses(41L, 23L);
         verify(taskService).selectActiveCategories(41L, 23L);
+        verify(taskService).selectAvailableRequirements(41L, 23L);
         verify(taskService).createTask(41L, 23L, 7L, "登录", "实现登录", "todo", List.of("dev"), List.of(23L));
     }
 
@@ -297,6 +303,7 @@ class TaskControllerTest
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(new MockHttpServletRequest()));
         when(taskService.selectActiveStatuses(41L, 23L)).thenReturn(null);
         when(taskService.selectActiveCategories(41L, 23L)).thenReturn(null);
+        when(taskService.selectAvailableRequirements(41L, 23L)).thenReturn(null);
 
         ResponseEntity<?> denied = controller.options("41");
         ResponseEntity<?> malformed = controller.options("bad");

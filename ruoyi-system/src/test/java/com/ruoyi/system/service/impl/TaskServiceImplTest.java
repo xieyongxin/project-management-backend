@@ -76,6 +76,7 @@ class TaskServiceImplTest
         TASK_MAPPER.categories.clear();
         TASK_MAPPER.users.clear();
         REQUIREMENT_MAPPER.memberIds.clear();
+        REQUIREMENT_MAPPER.availableRequirements.clear();
         LOG_MAPPER.logs.clear();
         LOG_MAPPER.failNextInsert.set(false);
 
@@ -89,6 +90,7 @@ class TaskServiceImplTest
         requirement.setProjectId(41L);
         requirement.setCurrentVersionId(501L);
         REQUIREMENT_MAPPER.requirement = requirement;
+        REQUIREMENT_MAPPER.availableRequirements.add(requirement);
         REQUIREMENT_MAPPER.memberIds.addAll(Set.of(21L, 23L));
         TASK_MAPPER.addStatus("todo", "待处理");
         TASK_MAPPER.addCategory("dev", "开发");
@@ -230,8 +232,24 @@ class TaskServiceImplTest
     {
         assertEquals(1, SERVICE.selectActiveStatuses(41L, 21L).size());
         assertEquals(1, SERVICE.selectActiveCategories(41L, 21L).size());
+        assertEquals(1, SERVICE.selectAvailableRequirements(41L, 21L).size());
         assertNull(SERVICE.selectActiveStatuses(41L, 22L));
         assertNull(SERVICE.selectActiveCategories(41L, 22L));
+        assertNull(SERVICE.selectAvailableRequirements(41L, 22L));
+    }
+
+    @Test
+    void deletedRequirementsAreNotAvailableForTaskCreation()
+    {
+        Requirement deleted = new Requirement();
+        deleted.setRequirementId(8L);
+        deleted.setProjectId(41L);
+        deleted.setIsDeleted(1);
+        REQUIREMENT_MAPPER.availableRequirements.add(deleted);
+
+        List<Requirement> available = SERVICE.selectAvailableRequirements(41L, 21L);
+
+        assertEquals(List.of(7L), available.stream().map(Requirement::getRequirementId).toList());
     }
 
     @Test
@@ -490,6 +508,7 @@ class TaskServiceImplTest
     {
         private Requirement requirement;
         private final Set<Long> memberIds = new java.util.LinkedHashSet<>();
+        private final List<Requirement> availableRequirements = new ArrayList<>();
 
         @Override
         public Requirement selectRequirementForUser(Long projectId, Long requirementId, Long userId)
@@ -530,7 +549,10 @@ class TaskServiceImplTest
         @Override public int insertRequirementVersion(com.ruoyi.system.domain.RequirementVersion value) { return 0; }
         @Override public int updateCurrentVersion(Long requirementId, Long versionId) { return 0; }
         @Override public int insertRequirementOwner(Long requirementId, Long userId) { return 0; }
-        @Override public List<Requirement> selectRequirementsForUser(Long projectId, Long userId) { return List.of(); }
+        @Override public List<Requirement> selectRequirementsForUser(Long projectId, Long userId)
+        {
+            return memberIds.contains(userId) ? availableRequirements : List.of();
+        }
         @Override public List<RequirementOwner> selectRequirementOwners(Long requirementId) { return List.of(); }
         @Override public SysDictData selectActiveRequirementStatus(String status) { return null; }
         @Override public List<SysDictData> selectActiveRequirementStatuses() { return List.of(); }

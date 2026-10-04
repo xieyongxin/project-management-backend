@@ -354,6 +354,23 @@ public class TaskServiceImpl implements ITaskService
         return taskMapper.selectActiveTaskCategories();
     }
 
+    @Override
+    public List<Requirement> selectAvailableRequirements(Long projectId, Long userId)
+    {
+        if (!isProjectMember(projectId, userId))
+        {
+            return null;
+        }
+        List<Requirement> requirements = requirementMapper.selectRequirementsForUser(projectId, userId);
+        if (requirements == null)
+        {
+            return List.of();
+        }
+        return requirements.stream()
+            .filter(requirement -> !Integer.valueOf(1).equals(requirement.getIsDeleted()))
+            .toList();
+    }
+
     private Task selectTaskForUserInternal(Long projectId, Long taskId, Long userId)
     {
         Task task = taskMapper.selectTaskForUser(projectId, taskId, userId);

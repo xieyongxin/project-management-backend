@@ -4,6 +4,7 @@ import java.util.List;
 import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.system.domain.Task;
 import com.ruoyi.system.domain.TaskVersion;
+import com.ruoyi.system.domain.Requirement;
 
 public interface ITaskService
 {
@@ -26,4 +27,6 @@ public interface ITaskService
     List<SysDictData> selectActiveStatuses(Long projectId, Long userId);
 
     List<SysDictData> selectActiveCategories(Long projectId, Long userId);
+
+    List<Requirement> selectAvailableRequirements(Long projectId, Long userId);
 }
