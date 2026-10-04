@@ -161,6 +161,44 @@ class TaskServiceImplTest
     }
 
     @Test
+    void memberCanDeleteTaskAndKeepHistoryVisible()
+    {
+        Task created = SERVICE.createTask(41L, 21L, 7L, "Title", "Description", "todo",
+            List.of("dev"), List.of(21L));
+
+        Task deleted = SERVICE.deleteTask(41L, created.getTaskId(), 21L);
+
+        assertEquals(1, deleted.getIsDeleted());
+        assertEquals(1, SERVICE.selectTasksForUser(41L, 21L).size());
+        assertEquals(1, SERVICE.selectTaskForUser(41L, created.getTaskId(), 21L).getIsDeleted());
+        assertEquals(1, SERVICE.selectTaskVersionsForUser(41L, created.getTaskId(), 21L).size());
+        assertEquals("TASK_DELETE", LOG_MAPPER.logs.get(LOG_MAPPER.logs.size() - 1).getOperationType());
+    }
+
+    @Test
+    void taskDeleteValidatesMemberArchiveRepeatAndLogRollback()
+    {
+        Task created = SERVICE.createTask(41L, 21L, 7L, "Title", "Description", "todo",
+            List.of("dev"), List.of(21L));
+        ServiceException nonMember = assertThrows(ServiceException.class,
+            () -> SERVICE.deleteTask(41L, created.getTaskId(), 22L));
+        ServiceException archived = assertThrows(ServiceException.class,
+            () -> SERVICE.deleteTask(41L, created.getTaskId(), 99L));
+        assertEquals(HttpStatus.NOT_FOUND, nonMember.getCode());
+        assertEquals(HttpStatus.BAD_REQUEST, archived.getCode());
+
+        LOG_MAPPER.failNextInsert.set(true);
+        assertThrows(IllegalStateException.class, () -> SERVICE.deleteTask(41L, created.getTaskId(), 21L));
+        assertEquals(0, JDBC.queryForObject("select is_deleted from pm_task where task_id = ?", Integer.class,
+            created.getTaskId()));
+
+        SERVICE.deleteTask(41L, created.getTaskId(), 21L);
+        ServiceException repeated = assertThrows(ServiceException.class,
+            () -> SERVICE.deleteTask(41L, created.getTaskId(), 21L));
+        assertEquals(HttpStatus.BAD_REQUEST, repeated.getCode());
+    }
+
+    @Test
     void duplicateCategoriesAndOwnersAreStoredOnce()
     {
         Task task = SERVICE.createTask(41L, 21L, 7L, "Title", "Description", "todo",
@@ -568,6 +606,13 @@ class TaskServiceImplTest
         }
 
         @Override
+        public int logicalDeleteTask(Long projectId, Long taskId)
+        {
+            return jdbc.update("update pm_task set is_deleted = 1, update_time = CURRENT_TIMESTAMP "
+                + "where project_id = ? and task_id = ? and is_deleted = 0", projectId, taskId);
+        }
+
+        @Override
         public int insertTaskVersion(TaskVersion version)
         {
             KeyHolder keyHolder = new GeneratedKeyHolder();
@@ -600,7 +645,7 @@ class TaskServiceImplTest
         {
             List<Task> tasks = jdbc.query("select t.*, v.version_no, v.title, v.description, v.requirement_version_id "
                 + "from pm_task t inner join pm_task_version v on v.version_id = t.current_version_id "
-                + "where t.project_id = ? and t.task_id = ? and t.is_deleted = 0",
+                + "where t.project_id = ? and t.task_id = ?",
                 (rs, rowNum) -> {
                     Task task = new Task();
                     task.setTaskId(rs.getLong("task_id"));
@@ -629,7 +674,7 @@ class TaskServiceImplTest
         {
             return jdbc.query("select t.*, v.version_no, v.title, v.description, v.requirement_version_id "
                 + "from pm_task t inner join pm_task_version v on v.version_id = t.current_version_id "
-                + "where t.project_id = ? and t.is_deleted = 0 order by t.create_time desc, t.task_id desc",
+                + "where t.project_id = ? order by t.create_time desc, t.task_id desc",
                 (rs, rowNum) -> {
                     Task task = new Task();
                     task.setTaskId(rs.getLong("task_id"));

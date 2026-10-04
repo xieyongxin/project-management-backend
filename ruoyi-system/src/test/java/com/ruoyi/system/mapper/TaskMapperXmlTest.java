@@ -150,6 +150,13 @@ class TaskMapperXmlTest
             assertEquals("done", jdbc.queryForObject("select status from pm_task where task_id = ?", String.class,
                 task.getTaskId()));
             assertEquals(0, mapper.updateTaskStatus(42L, task.getTaskId(), "todo"));
+            assertEquals(1, mapper.logicalDeleteTask(41L, task.getTaskId()));
+            session.commit();
+            Task deleted = mapper.selectTaskForUser(41L, task.getTaskId(), 21L);
+            assertEquals(1, deleted.getIsDeleted());
+            assertEquals(1, mapper.selectTasksForUser(41L, 21L).size());
+            assertEquals(1, mapper.selectTaskVersionsForUser(41L, task.getTaskId(), 21L).get(0).getIsDeleted());
+            assertEquals(0, mapper.logicalDeleteTask(41L, task.getTaskId()));
             session.commit();
         }
     }

@@ -199,6 +199,10 @@ public class TaskServiceImpl implements ITaskService
         {
             throw new ServiceException("任务不存在或无权访问", HttpStatus.NOT_FOUND);
         }
+        if (Integer.valueOf(1).equals(current.getIsDeleted()))
+        {
+            throw new ServiceException("已删除任务不能修改状态", HttpStatus.BAD_REQUEST);
+        }
         if (normalizedStatus.equals(current.getStatus()))
         {
             return enrichTask(current);
@@ -214,6 +218,47 @@ public class TaskServiceImpl implements ITaskService
         log.setOperationType("TASK_STATUS_UPDATE");
         log.setDetail("更新任务状态：" + statusLabel(current.getStatus(), current.getStatusLabel())
             + " -> " + statusLabel(normalizedStatus, statusData.getDictLabel()));
+        log.setCreateTime(new Date());
+        if (projectOperationLogMapper.insertProjectOperationLog(log) != 1)
+        {
+            throw new ServiceException("记录项目操作日志失败");
+        }
+        return selectTaskForUserInternal(projectId, taskId, operatorId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Task deleteTask(Long projectId, Long taskId, Long operatorId)
+    {
+        Project project = projectId == null || operatorId == null
+            ? null : projectMapper.selectProjectForUser(projectId, operatorId);
+        if (project == null)
+        {
+            throw new ServiceException("项目不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        if (Project.STATUS_ARCHIVED.equals(project.getStatus()))
+        {
+            throw new ServiceException("归档项目不能开展新的业务操作", HttpStatus.BAD_REQUEST);
+        }
+        Task current = taskId == null ? null : taskMapper.selectTaskForUser(projectId, taskId, operatorId);
+        if (current == null)
+        {
+            throw new ServiceException("任务不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        if (Integer.valueOf(1).equals(current.getIsDeleted()))
+        {
+            throw new ServiceException("任务已删除", HttpStatus.BAD_REQUEST);
+        }
+        if (taskMapper.logicalDeleteTask(projectId, taskId) != 1)
+        {
+            throw new ServiceException("删除任务失败");
+        }
+
+        ProjectOperationLog log = new ProjectOperationLog();
+        log.setProjectId(projectId);
+        log.setOperatorId(operatorId);
+        log.setOperationType("TASK_DELETE");
+        log.setDetail("删除任务 #" + taskId);
         log.setCreateTime(new Date());
         if (projectOperationLogMapper.insertProjectOperationLog(log) != 1)
         {

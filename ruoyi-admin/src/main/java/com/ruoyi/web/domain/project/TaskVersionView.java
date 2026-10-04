@@ -13,6 +13,7 @@ public class TaskVersionView
     private Integer requirementVersionNo;
     private Long createdBy;
     private java.util.Date createTime;
+    private Integer isDeleted;
 
     public static TaskVersionView from(TaskVersion version)
     {
@@ -26,6 +27,7 @@ public class TaskVersionView
         view.setRequirementVersionNo(version.getRequirementVersionNo());
         view.setCreatedBy(version.getCreatedBy());
         view.setCreateTime(version.getCreateTime());
+        view.setIsDeleted(version.getIsDeleted());
         return view;
     }
 
@@ -47,4 +49,6 @@ public class TaskVersionView
     public void setCreatedBy(Long createdBy) { this.createdBy = createdBy; }
     public java.util.Date getCreateTime() { return createTime; }
     public void setCreateTime(java.util.Date createTime) { this.createTime = createTime; }
+    public Integer getIsDeleted() { return isDeleted; }
+    public void setIsDeleted(Integer isDeleted) { this.isDeleted = isDeleted; }
 }

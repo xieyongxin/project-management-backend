@@ -17,6 +17,7 @@ public class TaskView
     private String description;
     private String status;
     private String statusLabel;
+    private Integer isDeleted;
     private java.util.Date createTime;
     private java.util.Date updateTime;
     private List<TaskCategoryView> categories;
@@ -37,6 +38,7 @@ public class TaskView
         view.setDescription(task.getDescription());
         view.setStatus(task.getStatus());
         view.setStatusLabel(task.getStatusLabel());
+        view.setIsDeleted(task.getIsDeleted());
         view.setCreateTime(task.getCreateTime());
         view.setUpdateTime(task.getUpdateTime());
         view.setCategories(task.getCategories() == null ? List.of()
@@ -70,6 +72,8 @@ public class TaskView
     public void setStatus(String status) { this.status = status; }
     public String getStatusLabel() { return statusLabel; }
     public void setStatusLabel(String statusLabel) { this.statusLabel = statusLabel; }
+    public Integer getIsDeleted() { return isDeleted; }
+    public void setIsDeleted(Integer isDeleted) { this.isDeleted = isDeleted; }
     public java.util.Date getCreateTime() { return createTime; }
     public void setCreateTime(java.util.Date createTime) { this.createTime = createTime; }
     public java.util.Date getUpdateTime() { return updateTime; }

@@ -15,6 +15,8 @@ public interface TaskMapper
     int updateTaskStatus(@Param("projectId") Long projectId, @Param("taskId") Long taskId,
         @Param("status") String status);
 
+    int logicalDeleteTask(@Param("projectId") Long projectId, @Param("taskId") Long taskId);
+
     int insertTaskVersion(TaskVersion version);
 
     int updateCurrentVersion(@Param("taskId") Long taskId, @Param("versionId") Long versionId);

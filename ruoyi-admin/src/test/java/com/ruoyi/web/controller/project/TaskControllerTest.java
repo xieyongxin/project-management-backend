@@ -68,6 +68,9 @@ class TaskControllerTest
         org.springframework.security.access.prepost.PreAuthorize updateStatus = TaskController.class
             .getMethod("updateStatus", String.class, String.class, TaskStatusUpdateRequest.class)
             .getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class);
+        org.springframework.security.access.prepost.PreAuthorize delete = TaskController.class
+            .getMethod("delete", String.class, String.class)
+            .getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class);
         assertNotNull(list);
         assertNotNull(options);
         assertNotNull(create);
@@ -75,11 +78,13 @@ class TaskControllerTest
         assertNotNull(versions);
         assertNotNull(compareVersions);
         assertNotNull(updateStatus);
+        assertNotNull(delete);
         assertEquals("@ss.hasPermi('project:task:list')", list.value());
         assertEquals("@ss.hasPermi('project:task:list')", detail.value());
         assertEquals("@ss.hasPermi('project:task:list')", versions.value());
         assertEquals("@ss.hasPermi('project:task:list')", compareVersions.value());
         assertEquals("@ss.hasPermi('project:task:status')", updateStatus.value());
+        assertEquals("@ss.hasPermi('project:task:delete')", delete.value());
         assertEquals("@ss.hasPermi('project:task:add')", options.value());
         assertEquals("@ss.hasPermi('project:task:add')", create.value());
     }
@@ -199,6 +204,37 @@ class TaskControllerTest
         assertEquals(200, response.getStatusCode().value());
         assertEquals(8L, ((com.ruoyi.web.domain.project.TaskView) response.getBody().get("data")).getTaskId());
         verify(taskService).updateTaskStatus(41L, 8L, 23L, "doing");
+    }
+
+    @Test
+    void memberCanDeleteTaskAndServiceErrorsUseBusinessStatus()
+    {
+        setCurrentUser(23L);
+        Task task = new Task();
+        task.setTaskId(8L);
+        task.setIsDeleted(1);
+        when(taskService.deleteTask(41L, 8L, 23L)).thenReturn(task);
+
+        ResponseEntity<AjaxResult> response = controller.delete("41", "8");
+
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals(1, ((com.ruoyi.web.domain.project.TaskView) response.getBody().get("data")).getIsDeleted());
+        verify(taskService).deleteTask(41L, 8L, 23L);
+
+        doThrow(new ServiceException("归档项目不能开展新的业务操作", HttpStatus.BAD_REQUEST))
+            .when(taskService).deleteTask(41L, 8L, 23L);
+        response = controller.delete("41", "8");
+        assertEquals(400, response.getStatusCode().value());
+        assertEquals(HttpStatus.BAD_REQUEST, response.getBody().get("code"));
+    }
+
+    @Test
+    void malformedDeleteIdsDoNotQueryService()
+    {
+        setCurrentUser(23L);
+        assertEquals(404, controller.delete("bad", "8").getStatusCode().value());
+        assertEquals(404, controller.delete("41", "bad").getStatusCode().value());
+        org.mockito.Mockito.verifyNoInteractions(taskService);
     }
 
     @Test

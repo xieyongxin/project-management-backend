@@ -47,6 +47,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="requirementVersionNo" column="requirement_version_no" />
         <result property="createdBy" column="created_by" />
         <result property="createTime" column="create_time" />
+        <result property="isDeleted" column="is_deleted" />
     </resultMap>
 
     <insert id="insertTask" parameterType="Task" useGeneratedKeys="true" keyProperty="taskId">
@@ -60,6 +61,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <update id="updateTaskStatus">
         update pm_task
         set status = #{status}, update_time = CURRENT_TIMESTAMP
+        where project_id = #{projectId}
+          and task_id = #{taskId}
+          and is_deleted = 0
+    </update>
+
+    <update id="logicalDeleteTask">
+        update pm_task
+        set is_deleted = 1, update_time = CURRENT_TIMESTAMP
         where project_id = #{projectId}
           and task_id = #{taskId}
           and is_deleted = 0
@@ -104,7 +113,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
          and requirement_record.project_id = t.project_id
         left join sys_dict_data d on d.dict_type = 'pm_task_status'
             and d.dict_value = t.status
-        where t.is_deleted = 0
+        where 1 = 1
     </sql>
 
     <select id="selectTaskForUser" resultMap="TaskResult">
@@ -121,12 +130,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <select id="selectTaskVersionsForUser" resultMap="TaskVersionResult">
         select tv.version_id, tv.task_id, tv.version_no, tv.title, tv.description,
                tv.requirement_version_id, rv.version_no as requirement_version_no,
-               tv.created_by, tv.create_time
+               tv.created_by, tv.create_time, t.is_deleted
         from pm_task_version tv
         inner join pm_task t on t.task_id = tv.task_id
         inner join pm_requirement_version rv on rv.version_id = tv.requirement_version_id
-        where t.is_deleted = 0
-          and t.project_id = #{projectId}
+        where t.project_id = #{projectId}
           and t.task_id = #{taskId}
           and exists (
               select 1 from pm_project_member access_member

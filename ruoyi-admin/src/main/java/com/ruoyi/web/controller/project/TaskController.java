@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -140,6 +141,27 @@ public class TaskController extends BaseController
         try
         {
             Task task = taskService.updateTaskStatus(parsedProjectId, parsedTaskId, getUserId(), request.getStatus());
+            return ResponseEntity.ok(success(TaskView.from(task)));
+        }
+        catch (ServiceException e)
+        {
+            return serviceError(e);
+        }
+    }
+
+    @PreAuthorize("@ss.hasPermi('project:task:delete')")
+    @DeleteMapping("/{taskId}")
+    public ResponseEntity<AjaxResult> delete(@PathVariable String projectId, @PathVariable String taskId)
+    {
+        Long parsedProjectId = parseId(projectId);
+        Long parsedTaskId = parseId(taskId);
+        if (parsedProjectId == null || parsedTaskId == null)
+        {
+            return notFound();
+        }
+        try
+        {
+            Task task = taskService.deleteTask(parsedProjectId, parsedTaskId, getUserId());
             return ResponseEntity.ok(success(TaskView.from(task)));
         }
         catch (ServiceException e)
