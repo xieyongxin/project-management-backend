@@ -5,6 +5,7 @@ import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.common.constant.HttpStatus;
@@ -218,6 +219,96 @@ public class TaskServiceImpl implements ITaskService
         log.setOperationType("TASK_STATUS_UPDATE");
         log.setDetail("更新任务状态：" + statusLabel(current.getStatus(), current.getStatusLabel())
             + " -> " + statusLabel(normalizedStatus, statusData.getDictLabel()));
+        log.setCreateTime(new Date());
+        if (projectOperationLogMapper.insertProjectOperationLog(log) != 1)
+        {
+            throw new ServiceException("记录项目操作日志失败");
+        }
+        return selectTaskForUserInternal(projectId, taskId, operatorId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Task updateTaskFields(Long projectId, Long taskId, Long operatorId, List<String> categoryValues,
+        List<Long> ownerIds)
+    {
+        Project project = projectId == null || operatorId == null
+            ? null : projectMapper.selectProjectForUser(projectId, operatorId);
+        if (project == null)
+        {
+            throw new ServiceException("项目不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        if (Project.STATUS_ARCHIVED.equals(project.getStatus()))
+        {
+            throw new ServiceException("归档项目不能开展新的业务操作", HttpStatus.BAD_REQUEST);
+        }
+
+        Task current = taskId == null ? null : selectTaskForUserInternal(projectId, taskId, operatorId);
+        if (current == null)
+        {
+            throw new ServiceException("任务不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        if (Integer.valueOf(1).equals(current.getIsDeleted()))
+        {
+            throw new ServiceException("已删除任务不能修改分类或负责人", HttpStatus.BAD_REQUEST);
+        }
+
+        List<String> normalizedCategories = normalizeCategories(categoryValues);
+        if (normalizedCategories.isEmpty())
+        {
+            throw new ServiceException("任务至少需要一个分类", HttpStatus.BAD_REQUEST);
+        }
+        Set<String> activeCategories = values(taskMapper.selectActiveTaskCategories());
+        if (!activeCategories.containsAll(normalizedCategories))
+        {
+            throw new ServiceException("任务分类不存在或已停用", HttpStatus.BAD_REQUEST);
+        }
+
+        List<Long> normalizedOwnerIds = normalizeOwnerIds(ownerIds);
+        if (normalizedOwnerIds.isEmpty())
+        {
+            throw new ServiceException("任务至少需要一名负责人", HttpStatus.BAD_REQUEST);
+        }
+        List<RequirementOwner> members = requirementMapper.selectProjectMembersByIds(projectId, normalizedOwnerIds);
+        if (members == null || members.size() != normalizedOwnerIds.size())
+        {
+            throw new ServiceException("任务负责人必须是当前项目成员", HttpStatus.BAD_REQUEST);
+        }
+
+        Set<String> currentCategories = current.getCategories() == null ? Set.of()
+            : current.getCategories().stream().map(TaskCategory::getCategoryValue).collect(Collectors.toSet());
+        Set<Long> currentOwnerIds = current.getOwners() == null ? Set.of()
+            : current.getOwners().stream().map(TaskOwner::getUserId).collect(Collectors.toSet());
+        if (currentCategories.equals(new LinkedHashSet<>(normalizedCategories))
+            && currentOwnerIds.equals(new LinkedHashSet<>(normalizedOwnerIds)))
+        {
+            return current;
+        }
+
+        if (taskMapper.deleteTaskCategories(taskId) < 0 || taskMapper.deleteTaskOwners(taskId) < 0)
+        {
+            throw new ServiceException("更新任务分类或负责人失败");
+        }
+        for (String category : normalizedCategories)
+        {
+            if (taskMapper.insertTaskCategory(taskId, category) != 1)
+            {
+                throw new ServiceException("更新任务分类失败");
+            }
+        }
+        for (Long ownerId : normalizedOwnerIds)
+        {
+            if (taskMapper.insertTaskOwner(taskId, ownerId) != 1)
+            {
+                throw new ServiceException("更新任务负责人失败");
+            }
+        }
+
+        ProjectOperationLog log = new ProjectOperationLog();
+        log.setProjectId(projectId);
+        log.setOperatorId(operatorId);
+        log.setOperationType("TASK_FIELD_UPDATE");
+        log.setDetail("更新任务分类和负责人");
         log.setCreateTime(new Date());
         if (projectOperationLogMapper.insertProjectOperationLog(log) != 1)
         {

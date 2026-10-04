@@ -597,6 +597,7 @@ class TaskServiceImplTest
         @Override public int insertRequirementVersion(com.ruoyi.system.domain.RequirementVersion value) { return 0; }
         @Override public int updateCurrentVersion(Long requirementId, Long versionId) { return 0; }
         @Override public int insertRequirementOwner(Long requirementId, Long userId) { return 0; }
+        @Override public int deleteRequirementOwners(Long requirementId) { return 0; }
         @Override public List<Requirement> selectRequirementsForUser(Long projectId, Long userId)
         {
             return memberIds.contains(userId) ? availableRequirements : List.of();
@@ -707,8 +708,12 @@ class TaskServiceImplTest
         { return jdbc.update("update pm_task set current_version_id = ? where task_id = ?", versionId, taskId); }
         @Override public int insertTaskCategory(Long taskId, String categoryValue)
         { return jdbc.update("insert into pm_task_category (task_id, category_value) values (?, ?)", taskId, categoryValue); }
+        @Override public int deleteTaskCategories(Long taskId)
+        { return jdbc.update("delete from pm_task_category where task_id = ?", taskId); }
         @Override public int insertTaskOwner(Long taskId, Long userId)
         { return jdbc.update("insert into pm_task_owner (task_id, user_id) values (?, ?)", taskId, userId); }
+        @Override public int deleteTaskOwners(Long taskId)
+        { return jdbc.update("delete from pm_task_owner where task_id = ?", taskId); }
 
         @Override
         public Task selectTaskForUser(Long projectId, Long taskId, Long userId)

@@ -34,6 +34,7 @@ import com.ruoyi.common.utils.file.FileUtils;
 import com.ruoyi.system.service.IRequirementService;
 import com.ruoyi.web.domain.project.RequirementCreateRequest;
 import com.ruoyi.web.domain.project.RequirementContentUpdateRequest;
+import com.ruoyi.web.domain.project.RequirementOwnerUpdateRequest;
 import com.ruoyi.web.domain.project.RequirementStatusUpdateRequest;
 import com.ruoyi.web.domain.project.RequirementView;
 import com.ruoyi.web.domain.project.RequirementVersionView;
@@ -221,6 +222,29 @@ public class RequirementController extends BaseController
         {
             Requirement requirement = requirementService.updateRequirementStatus(parsedProjectId,
                 parsedRequirementId, getUserId(), request.getStatus());
+            return ResponseEntity.ok(success(RequirementView.from(requirement)));
+        }
+        catch (ServiceException e)
+        {
+            return serviceError(e);
+        }
+    }
+
+    @PreAuthorize("@ss.hasPermi('project:requirement:edit')")
+    @PutMapping("/{requirementId}/owners")
+    public ResponseEntity<AjaxResult> updateOwners(@PathVariable String projectId,
+        @PathVariable String requirementId, @Validated @RequestBody RequirementOwnerUpdateRequest request)
+    {
+        Long parsedProjectId = parseId(projectId);
+        Long parsedRequirementId = parseId(requirementId);
+        if (parsedProjectId == null || parsedRequirementId == null)
+        {
+            return notFound();
+        }
+        try
+        {
+            Requirement requirement = requirementService.updateRequirementOwners(parsedProjectId,
+                parsedRequirementId, getUserId(), request.getOwnerIds());
             return ResponseEntity.ok(success(RequirementView.from(requirement)));
         }
         catch (ServiceException e)

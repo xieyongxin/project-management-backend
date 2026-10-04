@@ -648,6 +648,12 @@ class RequirementServiceImplTest
         }
 
         @Override
+        public int deleteRequirementOwners(Long requirementId)
+        {
+            return jdbc.update("delete from pm_requirement_owner where requirement_id = ?", requirementId);
+        }
+
+        @Override
         public Requirement selectRequirementForUser(Long projectId, Long requirementId, Long userId)
         {
             List<Requirement> requirements = jdbc.query("select r.*, v.version_no, v.title, v.content "

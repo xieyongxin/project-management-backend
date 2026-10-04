@@ -13,6 +13,9 @@ public interface ITaskService
 
     Task updateTaskStatus(Long projectId, Long taskId, Long operatorId, String status);
 
+    Task updateTaskFields(Long projectId, Long taskId, Long operatorId,
+        List<String> categoryValues, List<Long> ownerIds);
+
     Task updateTaskToLatestRequirement(Long projectId, Long taskId, Long operatorId,
         String title, String description);
 

@@ -92,10 +92,20 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         values (#{taskId}, #{categoryValue})
     </insert>
 
+    <delete id="deleteTaskCategories">
+        delete from pm_task_category
+        where task_id = #{taskId}
+    </delete>
+
     <insert id="insertTaskOwner">
         insert into pm_task_owner (task_id, user_id)
         values (#{taskId}, #{userId})
     </insert>
+
+    <delete id="deleteTaskOwners">
+        delete from pm_task_owner
+        where task_id = #{taskId}
+    </delete>
 
     <sql id="selectTaskColumns">
         select t.task_id, t.project_id, t.requirement_id, t.creator_id, t.current_version_id,

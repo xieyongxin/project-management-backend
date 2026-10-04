@@ -92,6 +92,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         values (#{requirementId}, #{userId})
     </insert>
 
+    <delete id="deleteRequirementOwners">
+        delete from pm_requirement_owner
+        where requirement_id = #{requirementId}
+    </delete>
+
     <insert id="insertRequirementAttachment" parameterType="RequirementAttachment"
         useGeneratedKeys="true" keyProperty="attachmentId">
         insert into pm_requirement_attachment

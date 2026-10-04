@@ -24,6 +24,7 @@ import com.ruoyi.system.domain.Task;
 import com.ruoyi.system.domain.TaskVersion;
 import com.ruoyi.system.service.ITaskService;
 import com.ruoyi.web.domain.project.TaskCreateRequest;
+import com.ruoyi.web.domain.project.TaskFieldsUpdateRequest;
 import com.ruoyi.web.domain.project.TaskStatusUpdateRequest;
 import com.ruoyi.web.domain.project.TaskVersionUpdateRequest;
 import com.ruoyi.web.domain.project.TaskView;
@@ -143,6 +144,29 @@ public class TaskController extends BaseController
         try
         {
             Task task = taskService.updateTaskStatus(parsedProjectId, parsedTaskId, getUserId(), request.getStatus());
+            return ResponseEntity.ok(success(TaskView.from(task)));
+        }
+        catch (ServiceException e)
+        {
+            return serviceError(e);
+        }
+    }
+
+    @PreAuthorize("@ss.hasPermi('project:task:edit') or @ss.hasPermi('project:agent:split')")
+    @PutMapping("/{taskId}/fields")
+    public ResponseEntity<AjaxResult> updateFields(@PathVariable String projectId, @PathVariable String taskId,
+        @Validated @RequestBody TaskFieldsUpdateRequest request)
+    {
+        Long parsedProjectId = parseId(projectId);
+        Long parsedTaskId = parseId(taskId);
+        if (parsedProjectId == null || parsedTaskId == null)
+        {
+            return notFound();
+        }
+        try
+        {
+            Task task = taskService.updateTaskFields(parsedProjectId, parsedTaskId, getUserId(),
+                request.getCategoryValues(), request.getOwnerIds());
             return ResponseEntity.ok(success(TaskView.from(task)));
         }
         catch (ServiceException e)

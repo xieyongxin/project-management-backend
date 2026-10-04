@@ -29,6 +29,8 @@ public interface RequirementMapper
     int insertRequirementOwner(@Param("requirementId") Long requirementId,
         @Param("userId") Long userId);
 
+    int deleteRequirementOwners(@Param("requirementId") Long requirementId);
+
     Requirement selectRequirementForUser(@Param("projectId") Long projectId,
         @Param("requirementId") Long requirementId, @Param("userId") Long userId);
 

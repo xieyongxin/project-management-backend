@@ -23,7 +23,11 @@ public interface TaskMapper
 
     int insertTaskCategory(@Param("taskId") Long taskId, @Param("categoryValue") String categoryValue);
 
+    int deleteTaskCategories(@Param("taskId") Long taskId);
+
     int insertTaskOwner(@Param("taskId") Long taskId, @Param("userId") Long userId);
+
+    int deleteTaskOwners(@Param("taskId") Long taskId);
 
     Task selectTaskForUser(@Param("projectId") Long projectId, @Param("taskId") Long taskId,
         @Param("userId") Long userId);

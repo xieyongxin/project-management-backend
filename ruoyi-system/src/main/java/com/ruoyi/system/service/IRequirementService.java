@@ -14,6 +14,8 @@ public interface IRequirementService
 
     Requirement updateRequirementStatus(Long projectId, Long requirementId, Long operatorId, String status);
 
+    Requirement updateRequirementOwners(Long projectId, Long requirementId, Long operatorId, List<Long> ownerIds);
+
     Requirement updateRequirementContent(Long projectId, Long requirementId, Long operatorId,
         String title, String content);
 

@@ -206,6 +206,75 @@ public class RequirementServiceImpl implements IRequirementService
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public Requirement updateRequirementOwners(Long projectId, Long requirementId, Long operatorId,
+        List<Long> ownerIds)
+    {
+        Project project = projectId == null || operatorId == null
+            ? null : projectMapper.selectProjectForUser(projectId, operatorId);
+        if (project == null)
+        {
+            throw new ServiceException("项目不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        if (Project.STATUS_ARCHIVED.equals(project.getStatus()))
+        {
+            throw new ServiceException("归档项目不能开展新的业务操作", HttpStatus.BAD_REQUEST);
+        }
+
+        Requirement current = requirementId == null ? null
+            : selectRequirementForUserInternal(projectId, requirementId, operatorId);
+        if (current == null)
+        {
+            throw new ServiceException("需求不存在或无权访问", HttpStatus.NOT_FOUND);
+        }
+        if (Integer.valueOf(1).equals(current.getIsDeleted()))
+        {
+            throw new ServiceException("已删除需求不能修改负责人", HttpStatus.BAD_REQUEST);
+        }
+
+        List<Long> normalizedOwnerIds = normalizeOwnerIds(ownerIds);
+        if (normalizedOwnerIds.isEmpty())
+        {
+            throw new ServiceException("需求至少需要一名负责人", HttpStatus.BAD_REQUEST);
+        }
+        List<RequirementOwner> members = requirementMapper.selectProjectMembersByIds(projectId, normalizedOwnerIds);
+        if (members == null || members.size() != normalizedOwnerIds.size())
+        {
+            throw new ServiceException("需求负责人必须是当前项目成员", HttpStatus.BAD_REQUEST);
+        }
+
+        Set<Long> currentOwnerIds = current.getOwners() == null ? Set.of()
+            : current.getOwners().stream().map(RequirementOwner::getUserId).collect(Collectors.toSet());
+        if (currentOwnerIds.equals(new LinkedHashSet<>(normalizedOwnerIds)))
+        {
+            return current;
+        }
+        if (requirementMapper.deleteRequirementOwners(requirementId) < 0)
+        {
+            throw new ServiceException("更新需求负责人失败");
+        }
+        for (Long ownerId : normalizedOwnerIds)
+        {
+            if (requirementMapper.insertRequirementOwner(requirementId, ownerId) != 1)
+            {
+                throw new ServiceException("更新需求负责人失败");
+            }
+        }
+
+        ProjectOperationLog log = new ProjectOperationLog();
+        log.setProjectId(projectId);
+        log.setOperatorId(operatorId);
+        log.setOperationType("REQUIREMENT_OWNER_UPDATE");
+        log.setDetail("更新需求负责人");
+        log.setCreateTime(new Date());
+        if (projectOperationLogMapper.insertProjectOperationLog(log) != 1)
+        {
+            throw new ServiceException("记录项目操作日志失败");
+        }
+        return selectRequirementForUserInternal(projectId, requirementId, operatorId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public Requirement updateRequirementContent(Long projectId, Long requirementId, Long operatorId,
         String title, String content)
     {
