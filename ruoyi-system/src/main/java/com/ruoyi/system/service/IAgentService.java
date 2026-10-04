@@ -11,5 +11,8 @@ public interface IAgentService
     AgentCall call(Long projectId, Long requirementId, Long userId, List<Long> attachmentIds,
         String idempotencyKey, boolean confirmed);
 
+    AgentCall retry(Long projectId, Long requirementId, Long callId, Long userId,
+        String idempotencyKey, boolean confirmed);
+
     List<AgentCall> listCalls(Long projectId, Long requirementId, Long userId);
 }

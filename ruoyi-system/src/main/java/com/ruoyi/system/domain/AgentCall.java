@@ -9,6 +9,9 @@ public class AgentCall
     private Long requirementId;
     private Long requirementVersionId;
     private Long initiatorId;
+    private Long retryOfCallId;
+    private Integer retryCount;
+    private String inputTitle;
     private String provider;
     private String model;
     private Integer externalEnabled;
@@ -32,6 +35,12 @@ public class AgentCall
     public void setRequirementVersionId(Long requirementVersionId) { this.requirementVersionId = requirementVersionId; }
     public Long getInitiatorId() { return initiatorId; }
     public void setInitiatorId(Long initiatorId) { this.initiatorId = initiatorId; }
+    public Long getRetryOfCallId() { return retryOfCallId; }
+    public void setRetryOfCallId(Long retryOfCallId) { this.retryOfCallId = retryOfCallId; }
+    public Integer getRetryCount() { return retryCount; }
+    public void setRetryCount(Integer retryCount) { this.retryCount = retryCount; }
+    public String getInputTitle() { return inputTitle; }
+    public void setInputTitle(String inputTitle) { this.inputTitle = inputTitle; }
     public String getProvider() { return provider; }
     public void setProvider(String provider) { this.provider = provider; }
     public String getModel() { return model; }

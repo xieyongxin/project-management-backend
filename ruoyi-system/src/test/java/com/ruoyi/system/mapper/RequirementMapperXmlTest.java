@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import com.ruoyi.common.core.domain.entity.SysDictData;
 import com.ruoyi.system.domain.Requirement;
+import com.ruoyi.system.domain.RequirementAttachment;
 import com.ruoyi.system.domain.RequirementOwner;
 import com.ruoyi.system.domain.RequirementVersion;
 
@@ -65,6 +66,7 @@ class RequirementMapperXmlTest
         configuration.getTypeAliasRegistry().registerAlias("Requirement", Requirement.class);
         configuration.getTypeAliasRegistry().registerAlias("RequirementVersion", RequirementVersion.class);
         configuration.getTypeAliasRegistry().registerAlias("RequirementOwner", RequirementOwner.class);
+        configuration.getTypeAliasRegistry().registerAlias("RequirementAttachment", RequirementAttachment.class);
         parseMapper(configuration, "mapper/system/RequirementMapper.xml");
         sqlSessionFactory = new SqlSessionFactoryBuilder().build(configuration);
     }

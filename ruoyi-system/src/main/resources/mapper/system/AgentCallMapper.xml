@@ -9,6 +9,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="requirementId" column="requirement_id" />
         <result property="requirementVersionId" column="requirement_version_id" />
         <result property="initiatorId" column="initiator_id" />
+        <result property="retryOfCallId" column="retry_of_call_id" />
+        <result property="retryCount" column="retry_count" />
+        <result property="inputTitle" column="input_title" />
         <result property="provider" column="provider" />
         <result property="model" column="model" />
         <result property="externalEnabled" column="external_enabled" />
@@ -25,11 +28,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <insert id="insertAgentCall" parameterType="AgentCall" useGeneratedKeys="true" keyProperty="callId">
         insert into pm_agent_call
-            (project_id, requirement_id, requirement_version_id, initiator_id, provider, model,
+            (project_id, requirement_id, requirement_version_id, initiator_id, retry_of_call_id, retry_count, input_title, provider, model,
              external_enabled, status, idempotency_key, selected_attachment_snapshot, input_content,
              parsed_attachment_content, draft_tasks, error_message, create_time, update_time)
         values
-            (#{projectId}, #{requirementId}, #{requirementVersionId}, #{initiatorId}, #{provider}, #{model},
+            (#{projectId}, #{requirementId}, #{requirementVersionId}, #{initiatorId}, #{retryOfCallId}, #{retryCount}, #{inputTitle}, #{provider}, #{model},
              #{externalEnabled}, #{status}, #{idempotencyKey}, #{selectedAttachmentSnapshot}, #{inputContent},
              #{parsedAttachmentContent}, #{draftTasks}, #{errorMessage}, #{createTime}, #{updateTime})
     </insert>
@@ -39,6 +42,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         where project_id = #{projectId} and initiator_id = #{initiatorId}
           and idempotency_key = #{idempotencyKey}
         order by call_id desc limit 1
+    </select>
+
+    <select id="selectAgentCallForUser" resultMap="AgentCallResult">
+        select c.* from pm_agent_call c
+        inner join pm_project_member m on m.project_id = c.project_id and m.user_id = #{userId}
+        where c.project_id = #{projectId}
+          and c.requirement_id = #{requirementId}
+          and c.call_id = #{callId}
+        limit 1
     </select>
 
     <select id="selectAgentCallsForUser" resultMap="AgentCallResult">

@@ -77,8 +77,7 @@ public class AgentServiceImpl implements IAgentService
         if (Project.STATUS_ARCHIVED.equals(project.getStatus()))
             throw new ServiceException("归档项目不能开展新的业务操作", HttpStatus.BAD_REQUEST);
         if (!confirmed) throw new ServiceException("发送 Agent 前必须确认拟发送内容", HttpStatus.BAD_REQUEST);
-        String key = idempotencyKey == null ? "" : idempotencyKey.trim();
-        if (key.isEmpty() || key.length() > 128) throw new ServiceException("幂等键不能为空且不能超过128个字符", HttpStatus.BAD_REQUEST);
+        String key = normalizeKey(idempotencyKey);
         Requirement requirement = preview(projectId, requirementId, userId);
         AgentCall existing = agentCallMapper.selectByIdempotency(projectId, userId, key);
         if (existing != null)
@@ -93,29 +92,45 @@ public class AgentServiceImpl implements IAgentService
         Set<Long> allowed = available.stream().map(RequirementAttachment::getAttachmentId).collect(java.util.stream.Collectors.toSet());
         Set<Long> selected = new LinkedHashSet<>(attachmentIds == null ? List.of() : attachmentIds);
         if (!allowed.containsAll(selected)) throw new ServiceException("所选附件不属于需求当前版本", HttpStatus.BAD_REQUEST);
-        String provider = value("project.agent.provider", "local");
-        String model = value("project.agent.model", "local-draft-v1");
-        boolean external = Boolean.parseBoolean(value("project.agent.external.enabled", "false"));
-        Date now = new Date();
-        AgentCall call = new AgentCall();
-        call.setProjectId(projectId); call.setRequirementId(requirementId); call.setRequirementVersionId(requirement.getCurrentVersionId());
-        call.setInitiatorId(userId); call.setProvider(provider); call.setModel(model); call.setExternalEnabled(external ? 1 : 0);
-        call.setStatus("SUCCESS"); call.setIdempotencyKey(key); call.setSelectedAttachmentSnapshot(JSON.toJSONString(selected));
-        call.setInputContent(requirement.getContent());
-        call.setParsedAttachmentContent(parseAttachmentContent(selected.stream()
+        return createCall(projectId, requirementId, userId, key, confirmed, null, 0,
+            requirement.getCurrentVersionId(), requirement.getTitle(), requirement.getContent(),
+            JSON.toJSONString(selected), parseAttachmentContent(selected.stream()
             .map(id -> available.stream().filter(item -> id.equals(item.getAttachmentId())).findFirst().orElse(null))
-            .filter(java.util.Objects::nonNull).toList()));
-        call.setDraftTasks(JSON.toJSONString(List.of(java.util.Map.of("title", "拆分：" + requirement.getTitle(),
-            "description", requirement.getContent(), "categoryValues", List.of()))));
-        call.setCreateTime(now); call.setUpdateTime(now);
-        if (agentCallMapper.insertAgentCall(call) != 1)
-            throw new ServiceException("保存 Agent 调用记录失败", HttpStatus.ERROR);
-        ProjectOperationLog log = new ProjectOperationLog();
-        log.setProjectId(projectId); log.setOperatorId(userId); log.setOperationType("AGENT_CALL");
-        log.setDetail("调用 Agent 生成任务草稿，需求版本 v" + requirement.getCurrentVersionNo()); log.setCreateTime(now);
-        if (projectOperationLogMapper.insertProjectOperationLog(log) != 1)
-            throw new ServiceException("记录项目操作日志失败", HttpStatus.ERROR);
-        return call;
+            .filter(java.util.Objects::nonNull).toList()), requirement.getCurrentVersionNo());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public AgentCall retry(Long projectId, Long requirementId, Long callId, Long userId,
+        String idempotencyKey, boolean confirmed)
+    {
+        Project project = projectId == null || userId == null ? null : projectMapper.selectProjectForUser(projectId, userId);
+        if (project == null) throw new ServiceException("项目不存在或无权访问", HttpStatus.NOT_FOUND);
+        if (Project.STATUS_ARCHIVED.equals(project.getStatus()))
+            throw new ServiceException("归档项目不能开展新的业务操作", HttpStatus.BAD_REQUEST);
+        if (!confirmed) throw new ServiceException("重试 Agent 前必须确认原始输入", HttpStatus.BAD_REQUEST);
+        String key = normalizeKey(idempotencyKey);
+        AgentCall existing = agentCallMapper.selectByIdempotency(projectId, userId, key);
+        if (existing != null)
+        {
+            if (!requirementId.equals(existing.getRequirementId()))
+                throw new ServiceException("幂等键已经用于其他需求", HttpStatus.CONFLICT);
+            return existing;
+        }
+        AgentCall source = agentCallMapper.selectAgentCallForUser(projectId, requirementId, callId, userId);
+        if (source == null) throw new ServiceException("Agent 调用记录不存在或无权访问", HttpStatus.NOT_FOUND);
+        if (!"FAILED".equals(source.getStatus()))
+            throw new ServiceException("只有失败的 Agent 调用可以重试", HttpStatus.BAD_REQUEST);
+        int retryCount = source.getRetryCount() == null ? 0 : source.getRetryCount();
+        int maxRetry = integerValue("project.agent.retry.max", 0);
+        if (maxRetry > 0 && retryCount >= maxRetry)
+            throw new ServiceException("已达到 Agent 最大重试次数", HttpStatus.BAD_REQUEST);
+        Requirement requirement = requirementService.selectRequirementForUser(projectId, requirementId, userId);
+        if (requirement == null || Integer.valueOf(1).equals(requirement.getIsDeleted()))
+            throw new ServiceException("需求不存在或已删除", HttpStatus.BAD_REQUEST);
+        return createCall(projectId, requirementId, userId, key, confirmed, source.getCallId(), retryCount + 1,
+            source.getRequirementVersionId(), source.getInputTitle(), source.getInputContent(),
+            source.getSelectedAttachmentSnapshot(), source.getParsedAttachmentContent(), null);
     }
 
     @Override
@@ -131,6 +146,60 @@ public class AgentServiceImpl implements IAgentService
     {
         String value = configService.selectConfigByKey(key);
         return value == null || value.trim().isEmpty() ? fallback : value.trim();
+    }
+
+    private String normalizeKey(String idempotencyKey)
+    {
+        String key = idempotencyKey == null ? "" : idempotencyKey.trim();
+        if (key.isEmpty() || key.length() > 128)
+            throw new ServiceException("幂等键不能为空且不能超过128个字符", HttpStatus.BAD_REQUEST);
+        return key;
+    }
+
+    private int integerValue(String key, int fallback)
+    {
+        try { return Integer.parseInt(value(key, String.valueOf(fallback))); }
+        catch (NumberFormatException e) { return fallback; }
+    }
+
+    private AgentCall createCall(Long projectId, Long requirementId, Long userId, String idempotencyKey,
+        boolean confirmed, Long retryOfCallId, int retryCount, Long requirementVersionId, String inputTitle,
+        String inputContent, String selectedAttachmentSnapshot, String parsedAttachmentContent,
+        Integer requirementVersionNo)
+    {
+        if (!confirmed) throw new ServiceException("发送 Agent 前必须确认拟发送内容", HttpStatus.BAD_REQUEST);
+        String provider = value("project.agent.provider", "local");
+        String model = value("project.agent.model", "local-draft-v1");
+        boolean external = Boolean.parseBoolean(value("project.agent.external.enabled", "false"));
+        Date now = new Date();
+        AgentCall call = new AgentCall();
+        call.setProjectId(projectId); call.setRequirementId(requirementId); call.setRequirementVersionId(requirementVersionId);
+        call.setInitiatorId(userId); call.setRetryOfCallId(retryOfCallId); call.setRetryCount(retryCount);
+        call.setInputTitle(inputTitle); call.setProvider(provider); call.setModel(model); call.setExternalEnabled(external ? 1 : 0);
+        call.setIdempotencyKey(idempotencyKey); call.setSelectedAttachmentSnapshot(selectedAttachmentSnapshot);
+        call.setInputContent(inputContent); call.setParsedAttachmentContent(parsedAttachmentContent);
+        if ("local".equalsIgnoreCase(provider))
+        {
+            call.setStatus("SUCCESS");
+            call.setDraftTasks(JSON.toJSONString(List.of(Map.of("title", "拆分：" + (inputTitle == null ? "需求" : inputTitle),
+                "description", inputContent == null ? "" : inputContent, "categoryValues", List.of()))));
+        }
+        else
+        {
+            call.setStatus("FAILED");
+            call.setErrorMessage("未配置可用的 Agent 适配器：" + provider);
+        }
+        call.setCreateTime(now); call.setUpdateTime(now);
+        if (agentCallMapper.insertAgentCall(call) != 1)
+            throw new ServiceException("保存 Agent 调用记录失败", HttpStatus.ERROR);
+        ProjectOperationLog log = new ProjectOperationLog();
+        log.setProjectId(projectId); log.setOperatorId(userId); log.setOperationType("AGENT_CALL");
+        String versionText = requirementVersionNo == null ? "" : "，需求版本 v" + requirementVersionNo;
+        log.setDetail(("SUCCESS".equals(call.getStatus()) ? "调用 Agent 生成任务草稿" : "Agent 调用失败：" + call.getErrorMessage()) + versionText);
+        log.setCreateTime(now);
+        if (projectOperationLogMapper.insertProjectOperationLog(log) != 1)
+            throw new ServiceException("记录项目操作日志失败", HttpStatus.ERROR);
+        return call;
     }
 
     private String parseAttachmentContent(List<RequirementAttachment> attachments)

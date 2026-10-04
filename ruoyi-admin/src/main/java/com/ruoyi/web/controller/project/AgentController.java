@@ -18,6 +18,7 @@ import com.ruoyi.system.domain.AgentCall;
 import com.ruoyi.system.service.IAgentService;
 import com.ruoyi.web.domain.project.AgentCallRequest;
 import com.ruoyi.web.domain.project.AgentCallView;
+import com.ruoyi.web.domain.project.AgentRetryRequest;
 import com.ruoyi.web.domain.project.RequirementView;
 
 @RestController
@@ -63,6 +64,22 @@ public class AgentController extends BaseController
         List<AgentCall> calls = agentService.listCalls(project, requirement, getUserId());
         if (calls == null) return notFound();
         return ResponseEntity.ok(success(calls.stream().map(AgentCallView::from).toList()));
+    }
+
+    @PreAuthorize("@ss.hasPermi('project:agent:split')")
+    @PostMapping("/calls/{callId}/retry")
+    public ResponseEntity<AjaxResult> retry(@PathVariable String projectId, @PathVariable String requirementId,
+        @PathVariable String callId, @Validated @RequestBody AgentRetryRequest request)
+    {
+        Long project = parse(projectId), requirement = parse(requirementId), parsedCall = parse(callId);
+        if (project == null || requirement == null || parsedCall == null) return notFound();
+        try
+        {
+            AgentCall call = agentService.retry(project, requirement, parsedCall, getUserId(),
+                request.getIdempotencyKey(), request.isConfirmed());
+            return ResponseEntity.ok(success(AgentCallView.from(call)));
+        }
+        catch (ServiceException e) { return error(e); }
     }
 
     private Long parse(String value) { try { return Long.valueOf(value); } catch (Exception e) { return null; } }

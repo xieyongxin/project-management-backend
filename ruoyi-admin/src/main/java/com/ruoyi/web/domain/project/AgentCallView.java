@@ -7,6 +7,9 @@ public class AgentCallView
     private Long callId;
     private Long requirementId;
     private Long requirementVersionId;
+    private Long initiatorId;
+    private Long retryOfCallId;
+    private Integer retryCount;
     private String provider;
     private String model;
     private Integer externalEnabled;
@@ -23,6 +26,7 @@ public class AgentCallView
     {
         AgentCallView view = new AgentCallView();
         view.callId = call.getCallId(); view.requirementId = call.getRequirementId(); view.requirementVersionId = call.getRequirementVersionId();
+        view.initiatorId = call.getInitiatorId(); view.retryOfCallId = call.getRetryOfCallId(); view.retryCount = call.getRetryCount();
         view.provider = call.getProvider(); view.model = call.getModel(); view.externalEnabled = call.getExternalEnabled();
         view.status = call.getStatus(); view.idempotencyKey = call.getIdempotencyKey(); view.selectedAttachmentSnapshot = call.getSelectedAttachmentSnapshot();
         view.inputContent = call.getInputContent(); view.parsedAttachmentContent = call.getParsedAttachmentContent(); view.draftTasks = call.getDraftTasks();
@@ -30,7 +34,9 @@ public class AgentCallView
         return view;
     }
     public Long getCallId() { return callId; } public Long getRequirementId() { return requirementId; }
-    public Long getRequirementVersionId() { return requirementVersionId; } public String getProvider() { return provider; }
+    public Long getRequirementVersionId() { return requirementVersionId; } public Long getInitiatorId() { return initiatorId; }
+    public Long getRetryOfCallId() { return retryOfCallId; } public Integer getRetryCount() { return retryCount; }
+    public String getProvider() { return provider; }
     public String getModel() { return model; } public Integer getExternalEnabled() { return externalEnabled; }
     public String getStatus() { return status; } public String getIdempotencyKey() { return idempotencyKey; }
     public String getSelectedAttachmentSnapshot() { return selectedAttachmentSnapshot; } public String getInputContent() { return inputContent; }

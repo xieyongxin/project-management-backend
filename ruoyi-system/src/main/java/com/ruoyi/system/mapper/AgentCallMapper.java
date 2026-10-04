@@ -11,6 +11,9 @@ public interface AgentCallMapper
     AgentCall selectByIdempotency(@Param("projectId") Long projectId, @Param("initiatorId") Long initiatorId,
         @Param("idempotencyKey") String idempotencyKey);
 
+    AgentCall selectAgentCallForUser(@Param("projectId") Long projectId,
+        @Param("requirementId") Long requirementId, @Param("callId") Long callId, @Param("userId") Long userId);
+
     List<AgentCall> selectAgentCallsForUser(@Param("projectId") Long projectId,
         @Param("requirementId") Long requirementId, @Param("userId") Long userId);
 }
